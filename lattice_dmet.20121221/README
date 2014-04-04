@@ -1,0 +1,128 @@
+The lattice-dmet program is more structured than the dmet_hubbard code,
+in order to later provide support for large-scale applications. I here
+want to point out what the basic classes are and how they are supposed
+to interact (note: not all of this is fully implemented as of yet.)
+
+* Defining the problem to evaluate
+  * The physical model: FLatticeModel in lattice_model.py
+    The FLatticeModel class effectively defines the Hamiltonian of the
+    full physical system, *WITHOUT* referring to any implementation or
+    approximation aspects. As such, it defines:
+    - the unit cell of the lattice (i.e., the sites in the unit-cell
+      and their physical locations in real space)
+    - the lattice translation vectors (vectors such that the lattice
+      is spanned by translating the unit-cell by integer multiples of
+      them)
+    - the hopping Hamiltonian (GetTij) and the on-site Hubbard
+      interaction (GetUi).
+    Example for using the class:
+    #+BEGIN_CODE
+    class FHubbardModel1d(FLatticeModel):
+      """defines the infinite 1d Hubbard model"""
+      def __init__(self, ClusterSize, Params):
+          # we give all sites the same type ('X'), and give them a physical
+          # location which is simply their lattice index.
+          UnitCell = []
+          UnitCell.append(("X", np.array([0])))
+
+          self.t = Params['t']
+          self.U = Params['U']
+
+          # The elementary lattice translation is a 1 x 1 matrix: Translating
+          # the lattice by one site leaves it invariant.
+          LatticeVectors = np.array([[1]])
+          FLatticeModel.__init__(self, UnitCell, LatticeVectors, ["U", "t"], MaxRangeT=1)
+      def GetTij(self, (SiteTypeI,XyzI), (SiteTypeJ,XyzJ)):
+         # return -t for nearest neighbors, 0 otherwise.
+         dXyz = XyzJ - XyzI
+         if sum(abs(dXyz)) == 1: return -self.t
+         return 0.
+      def GetUi(self, (SiteTypeI,XyzI)):
+         return self.U
+    #+END_CODE
+    Notes:
+    - Sites are represented as a tuples (Type,Xyz). The type is a
+      user-defined variable, for example a string. This is provided
+      to identify different types of sites. E.g., in a model with a
+      CuO2 unit cell, you might specify one site with Type = "Cu"
+      and two with Type = "O".
+      Xyz is a one-dimensional (len nDim) array defining the position
+      of the site in real-space. All xyz must have the same length,
+      called nRealSpaceDim.
+    - The unit cell is given as a list of Sites.
+    - The Hamiltonian is defined by the functions GetTij and GetUi.
+      GetTij gets as argument two sites (each one represented
+      by a both a type and a xyz) and returns the Hopping amplitude
+      between them. GetUi gets one site as argument and returns the
+      on-site Hubbard interaction (or 0. if there is none).
+    - The lattice translation vectors are given as a matrix, with the
+      number of rows equal to nRealSpaceDim, and the number of columns
+      equal to nLatticeDim.
+      The two dimensions need not necessarily be the same. E.g., it is
+      possible to define slabs, where sites live in 3d space
+      (nRealSpaceDim==3) and are repeated in two dimensions
+      (nLatticeDim==2). This functionality is not tested.
+    - Models can be specified in terms of spin-orbital sites instead of
+      spatial sites. This functionality is likely not compleltely working.
+
+  * The finite approximation to the physical model: FSuperCell in supercell.py
+    While FLatticeModel represents a real, infinite physical model, a super-cell
+    represents a finite cylic model of a periodic lattice of unit-cells.
+
+    The FLatticeSystem class defines:
+    - The size of the full system. This is given in terms of a cluster size
+      and a lattice size (the latter must be a multiple of the cluster size)
+      For mean-field calculations, the cluster-size is redundant and not
+      explicitly treated, but for DMET calculations this cluster size allows
+      for defining the lattice system unit-site, which may be a cluster of
+      elementary unit-cell sites.
+
+  * The actual /system/ to calculate: FLatticeSystem in meanfield.py
+    The super-cell represents only the geometric aspects of a lattice
+    model. But in order to actually calculate something, we need more:
+    In particular, the quantum numbers of the system (a WfDecl object),
+    like the number of electrons. The FLatticeSystem class takes as
+    argument a FSuperCell object, an WfDecl, and optionally an initial
+    guess for the mean-field. It provides routines for running mean-
+    field calculations (HF or CoreH-diagonalization) and making
+    orbitals, mean-field density matrices, etc.
+
+    There is still no DMET in this.
+
+  * DMET: FDmetContext in fragments.py
+    DmetContext defines the fragmentation of the cluster cell, and
+    controls the execution of DMET calculations.
+    (note: The cluster cell is the SuperCell's cluster-unit-cell,
+    which might consist of several repetitions of the elementary
+    physical unit cell defined by FLatticeModel).
+    All sites of the cluster cell must be included in some fragments,
+    but they fragment's calculation method may be set to HF, in which
+    case they are effectively disabled.
+
+* Defining the control flow of the calculation
+  I assumed that we would eventually want to run lattice-dmet on clusters
+  and on large problems with large parameter spaces. In this case, it is
+  essential that:
+  - the dependence of calculations on each other is properly
+    resolved, and
+  - the output is collected in such a way that it can be traced
+    what exactly happened (to reproduce the calculation), and
+    to use it for further analysis.
+  The first point mainly refers to the propagation of initial guesses
+  from one calculation to another: For example, one might want to use the
+  output of a (U=4., <n>=0.98) calculation as input on a (U=4., <n>=0.97)
+  calculation), while a (U=3., <n>=0.98) calculation uses (U=3., <n>=0.97)
+  as input---but the U=3 and U=4 calculations can be done independently.
+
+  In order to handle this, there is the abstraction of a /job/. A job can
+  have other jobs as prerequisites, and later a job scheduler should control
+  the flow of calculations and their distribution across computing clusters
+  via MPI. /this functionality is not yet working/. But this is the reason
+  for the presence of the Log class (to provide some means of collecting
+  concurrent output on different machines), and the paramter sets prevalent
+  in the program.
+
+
+
+
+# kate: mode OrgMode; indent-mode orgmode; indent-width 2

@@ -1,0 +1,222 @@
+:::: IR/WMME: Integral Revolution / Write Molecular Matrix Elements ::::
+   A program for experiments in molecular electronic structure theory
+                                                (c) Gerald Knizia, 2013
+________________________________________________________________________
+
+1. INTRODUCTION
+
+  - This program is intended to facilitate experiments in molecular
+    electronic structure theory by providing a simple way of calculating
+    realistic Hamiltonians using state of the art techniques from
+    Quantum Chemistry. The program calculates molecular matrix elements
+    (``integrals'') over Gaussian basis functions and writes them to
+    disk; inputs are a molecular geometry (.xyz file) and a basis set
+    definition (basis set name and libmol library file containing the
+    basis).
+
+  - Invoking the program without command line arguments provides a list
+    of supported arguments.
+
+  - Supported output formats are two plain text formats or the binary
+    .npy format, which can be directly loaded in numpy.
+
+  - The program calculates matrix elements over Gaussian basis functions
+    as used in molecular electronic structure programs. Assume the full
+    Hamiltonian is
+
+      H = \sum_{rs} <r|h|s> c^r c_s +
+                     [1/2] \sum_{rstu} <rs|tu> c^r c^s c_u c_t
+
+    The matrix elements that can be calculated are:
+
+         o Overlap matrix: <\mu|\nu> where r,s are raw basis functions.
+
+         o CoreH: The matrix elements of <r|h|s>, the sum of the kinetic
+           energy operator and the and nuclear attraction integrals
+           (coulomb potentials emitted by the atomic cores)
+
+         o The 3-index density fitting integrals (rs|L). These are
+           defined in such a way that
+
+               (rs|tu) = <rt|su> = \sum_L (rs|L) (L|tu)
+
+           (i.e., the 4-index integrals are approximate, but for all
+            practical purposes density fitting gives very accurate
+            results if used with the correct fitting sets)
+
+         o Which integrals are stored, and where, and in which format,
+           is controlled by command line arguments.
+
+    The matrix elements can either be generated over raw Gaussians or
+    they can be transformed into the symmetrically orthogonalized AO
+    basis (Smh basis) by the program itself, before exporting.
+    (see --orb-trafo command line argument)
+
+    In the latter case you will get matrix elements in a orthogonal
+    basis which can be directly employed in Hamiltonians. Otherwise you
+    need the overlap matrix to construct an orthogonal or bi-orthogonal
+    representation of the Hamiltonian.
+
+________________________________________________________________________
+
+2. COMPILING AND TESTING
+
+  - An example shell script for compiling the program is provided in
+    'make_without_scons.sh'. You will need to adjust it to your local
+    BLAS configuration.
+
+      o Note in particular the comments on AVX and 8-byte integers.
+        Using '-lmkl_avx' on a processor which does not support it WILL
+        CAUSE ILLEGAL INSTRUCTION ERRORS.
+        Using 4 byte-integer BLAS instead of 8-byte integer BLAS (and
+        not usind -D_I4_ or adjusting CxFortranInt.h as described) WILL
+        CRASH THE PROGRAM WITH SEGMENTATION VIOLATIONS.
+
+      o These are not errors in the program, and they cannot be
+        diagnosed from within the running program.
+
+  - Once compiled, try running 'python rhf_in_python.py'(*). This
+    should produce the following output:
+
+    *** SYSTEM 'benzene.xyz' [cc-pVDZ/univ-JKFIT]
+
+    *** HARTREE-FOCK
+
+     ORBITAL BASIS:                       114 FUNCTIONS
+     FITTING BASIS:                       558 FUNCTIONS
+
+       ITER.     ENERGY     ENERGY CHANGE     GRAD     DIIS     TIME
+         1  -194.51598284  -194.51598284    1.07e+01   -  -     0.17
+         2  -190.77348860    +3.74249423    1.05e+01   1  1     0.33
+         3  -230.19816214   -39.42467354    1.70e+00   2  2     0.49
+         4  -230.69239092    -0.49422878    3.81e-01   3  3     0.65
+         5  -230.72132087    -0.02892995    5.47e-02   4  4     0.82
+         6  -230.72196985    -0.00064897    2.48e-02   5  5     0.98
+         7  -230.72206795    -0.00009811    6.73e-03   6  6     1.14
+         8  -230.72207406    -0.00000611    6.87e-04   7  7     1.30
+         9  -230.72207415    -0.00000008    5.53e-05   8  8     1.47
+        10  -230.72207415    -0.00000000    1.06e-05   9  9     1.64
+        11  -230.72207415    -0.00000000    7.73e-07   9  9     1.82
+        12  -230.72207415    +0.00000000    4.53e-08   8  8     1.98
+        13  -230.72207415    -0.00000000    7.57e-09   7  7     2.17
+        14  -230.72207415    +0.00000000    6.27e-10   7  7     2.34
+        15  -230.72207415    -0.00000000    1.45e-10   6  6     2.51
+        16  -230.72207415    +0.00000000    2.55e-11   7  7     2.67
+
+     1e energy                        -713.631285237727
+     2e energy                         279.291450287406
+
+     Core energy                       203.617760802464
+     Electronic energy                -434.339834950319
+     Hartree-Fock energy              -230.722074147856
+
+   (*): This requires numpy and scipy to be installed (and working)
+
+________________________________________________________________________
+
+3. INPUT FORMAT
+
+  - The program gets as input a set of atoms, specified via a .xyz file,
+    and the names of the orbital and fitting basis sets it is supposed
+    to calculate. The basis sets are specified by the --basis-orb and
+    --basis-fit command line arguments.
+
+  - Basis sets are loaded from .libmol files (Molpro's integral library
+    format). A few files are provided. Additional basis sets can be
+    obtained from EMSL basis set exchange: https://bse.pnl.gov/bse/
+    For using EMSL basis set exchange, select 'MolproInt' as format and
+    uncheck 'Optimized General Contractions'. The Output generated by
+    the exchange can be directly saved as a .libmol file.
+
+  - The library files to load at program startup are specified via
+    --basis-lib command line arguments (they define names of libmol
+    files). No files are loaded by default, all used sets must be
+    provided in one of the loaded integral files.
+
+
+________________________________________________________________________
+
+4. EXAMPLES
+
+  - The usage of the program is illustrated in the attached
+    "rhf_in_python.py" file. This script calculates the DF-RHF energy of
+    benzene/VDZ. The relevant part is the "MakeMolecularSystemRaw"
+    function, which invokes ir-wmme and loads its results into python.
+
+
+________________________________________________________________________
+
+5. REFERENCES AND CITATIONS
+
+  - If you find the program useful, I would appreciate it if you could
+    cite
+     ``Determining the Numerical Stability of Quantum Chemistry Algorithms''
+      Gerald Knizia, Wenbin Li, Sven Simon, and Hans-Joachim Werner
+      J. Chem. Theory Comput., 2011, 7 (8), pp 2387–2398
+      DOI: 10.1021/ct200239p
+
+      ^- this reference describes the integration algorithms and
+         investigates some of their properties. Also, f95rr is really
+         cool.
+    or
+      (ab initio density matrix embedding etc.)
+      Gerald Knizia and Garnet K.-L. Chan
+      xxx (2012).
+
+      ^- this is the paper for which this easy-access interface to the
+         IR integral core was written for, and the main reason for
+         opening it.
+
+________________________________________________________________________
+
+6. USING THE INTEGRAL REVOLUTION CORE IN OTHER PROGRAMS
+
+  - Integral Revolution (IR) is a stand-alone 2-center/3-center integral
+    core using state of the art integration techniques. It is
+    essentially a complete rewrite (for non-technical reasons) of parts
+    of my AIC core used in Molpro. The main differences to its "big
+    brother" AIC are the following:
+
+      o No inline-contracting driver routines, derivative integral
+        routines, or non-standard integral kernels are provided. (none
+        of those are required for basic quantum chemistry programs)
+
+      o No grid operations (grid operations will likely be added later
+        for visualization purposes)
+
+      o The maximum angular momentum is restricted to g instead of k.
+        (for non-technical reasons)
+
+    On the other hand, IR includes highly efficient 2-center integrals,
+    the basis function interface (ir::FRawShell) is much simpler (and
+    designed to be easily usable in other programs), and this
+    distribution contains /everything/ required to get basic quantum
+    chemistry calculations working in a compact, stand-alone program
+    in less than 10k lines of code and without external dependencies.
+    You will find it hard to find this in other places.
+
+  - The IR core can be used in other programs, subject to the
+    restrictions imposed by the GPL license. The following files need to
+    be copied in order to obtain a working integral core:
+
+      CxDefs.h CxMemoryStack.cpp CxMemoryStack.h CxOpenMpProxy.h
+      CxVec3.h
+      Ir.h IrAmrr.cpp IrAmrr.h IrBoysFn.cpp IrBoysFn.h IrBoysFn.inl
+      IrCore.cpp IrDrv.cpp
+
+    These files have no external dependencies apart from the C++
+    standard library. The main header defining the interface is Ir.h.
+
+  - If the code is used in other programs or publications, I would
+    appreciate proper credit. Developing an efficient and easily usable
+    integral code is far from a triviality.
+
+________________________________________________________________________
+
+X. CHANGE HISTORY
+
+   - 2012-10-11: Initial release (for the dmet_hyd program)
+
+
+-- 
+Gerald Knizia, 2012-10-11
