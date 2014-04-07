@@ -17,7 +17,10 @@ class Input(object):
 # (lower_bound, upper_bound) for the given value.
     ''' Parse inputs and do very simple check for inputs
 
-    The input keys and values are case insensitive.
+    The input keys and values are case insensitive.  The value of the input
+    keyword can be accessed in two ways.  One is to use the member function
+    get_key, the other is to directly access via inputobj.xxx.yyy.  Both
+    access methods are case *sensitive*.
 
     Keys and default values
     -----------------------
@@ -139,6 +142,7 @@ class Input(object):
 
         self._input_dict = self.get_default_dict()
         self._checker = _parse_strdict(self._inpdict_in_doc(), True)
+        self._phony = ['_checker', '_input_dict'] + self.__dict__
 
         # merge input keywords with the default keywords
         # input keywords are case insensitive
@@ -160,12 +164,11 @@ class Input(object):
                     raise KeyError('non-existed key %s.%s' % (mod, k))
 
         # phony keywords must be saved before _merge_input2self 
-        self._phony = self.__dict__
         self._merge_input2self(self._input_dict)
 
     def _merge_input2self(self, input_dict):
-        # merge input_dict with the class attributes, so that the keyword XXX
-        # can be accessed directly by self.XXX
+        # merge input_dict with the class attributes, so that the keyword xxx
+        # can be accessed directly by self.xxx
         for mod, subdict in input_dict.items():
             setattr(self, mod, _InlineClass())
             for k,v in subdict.items():
