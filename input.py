@@ -66,6 +66,11 @@ class Input(object):
             # RAND = random,
             # MAN = user specified,
             # None
+        'frag_group': [],
+            # a group of frag-list, every frag-list is a list of atom id which
+            # indicates the atoms in the fragment
+        'nSitesPerFragment': 1,
+            #divides the entire basis into consecutive, equal length fragments
     },
     'FITTING': {
         'global_fit_dm': value(default=1, allow=(1,2,3,4)),
@@ -86,15 +91,10 @@ class Input(object):
                              allow=('local','global','oneshot')),
             # detailed fitting method
         'fitpot_damp_fac': value(default=0.5, limits=(0,1)),
-        'frag_group': [],
-            # a group of frag-list, every frag-list is a list of atom id which
-            # indicates the atoms in the fragment
         'vfit_init': 0,
             # initial guess for fitting method.  This key only affects the DM
             # fitting procedure, i.e. which fitting potential to start with.
             # It is different from DMET.init_guess.
-        'nSitesPerFragment': 1,
-            #divides the entire basis into consecutive, equal length fragments
     },
     'IMPSOLVER': {
         'imp_solver': value(default='FCI', allow=('FCI','CC')),
@@ -122,17 +122,20 @@ class Input(object):
     Examples
     --------
     >>> inp = Input({'DMET':{'max_iter':10},'MFD':{'scf_solver':'UHF'}})
+    >>> print inp.get_key('GEOMETRY', 'GeometryType')
+    xyz
+    >>> print inp.GEOMETRY.GeometryType
+    xyz
     >>> inp.MFD.max_iter = 20
+    Traceback (most recent call last):
+        ...
+    SyntaxError: Overwriting  MFD.max_iter  is not allowed
     >>> inp.self_check()
     True
     >>> inp.sanity_check('IMPSOLVER', 'imp_solver', 'MP2')
     Traceback (most recent call last):
         ...
     ValueError: MP2 is not one of ('FCI', 'CC')
-    >>> print inp.get_key('GEOMETRY', 'GeometryType')
-    xyz
-    >>> print inp.GEOMETRY.GeometryType
-    xyz
     '''
     def __init__(self, input_dict={}, ofname=None):
         if ofname == None:
@@ -140,9 +143,11 @@ class Input(object):
         else:
             self.output = open(ofname, 'w')
 
+        # protect the input key.
+        self._read_only = True
         self._input_dict = self.get_default_dict()
         self._checker = _parse_strdict(self._inpdict_in_doc(), True)
-        self._phony = ['_checker', '_input_dict'] + self.__dict__
+        self._phony = ['_checker', '_input_dict'] + self.__dict__.keys()
 
         # merge input keywords with the default keywords
         # input keywords are case insensitive
@@ -169,11 +174,28 @@ class Input(object):
     def _merge_input2self(self, input_dict):
         # merge input_dict with the class attributes, so that the keyword xxx
         # can be accessed directly by self.xxx
-        for mod, subdict in input_dict.items():
-            setattr(self, mod, _InlineClass())
-            for k,v in subdict.items():
-                self_mod = getattr(self, mod)
-                setattr(self_mod, k, v)
+        if not self._read_only:
+            for mod, subdict in input_dict.items():
+                self_mod = _InlineClass()
+                setattr(self, mod, self_mod)
+                for k,v in subdict.items():
+                    setattr(self_mod, k, v)
+        else:
+            # add a closure to hold key for get_x
+            def set_prop(modname, modclass, key):
+                def get_x(obj):
+                    return getattr(obj, '_'+key)
+                def set_x(obj, x):
+                    raise SyntaxError('Overwriting  %s.%s  is not allowed'
+                                      % (modname, key))
+                setattr(modclass, k, property(get_x, set_x))
+            for mod, subdict in input_dict.items():
+                modClass = _InlineClass
+                self_mod = modClass()
+                setattr(self, mod, self_mod)
+                for k,v in subdict.items():
+                    setattr(self_mod, '_'+k, v)
+                    set_prop(mod, modClass, k)
 
     def _inpdict_in_doc(self):
         doc = _find_between(self.__doc__, \
@@ -184,7 +206,7 @@ class Input(object):
         # Since the input keys have been merged to the class, remove the
         # intrinic member and functions to get input keys
         return filter(lambda s: not (s.startswith('_') or s in self._phony), \
-                      self.__dict__)
+                      self.__dict__.keys())
 
     def get_default_dict(self):
         '''The default input dict generated from __doc__'''
@@ -253,7 +275,7 @@ def dump_inputfile(fileobj):
 
 class _InlineClass(object):
     def __dir__(self):
-        return self.__dict__.keys()
+        return filter(lambda s: not s.startswith('_'), self.__dict__.keys())
 
 def _find_between(s, start, end):
     ''' sub-strings between the start string and end string
