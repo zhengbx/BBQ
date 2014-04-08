@@ -17,10 +17,8 @@ class Input(object):
 # (lower_bound, upper_bound) for the given value.
     ''' Parse inputs and do very simple check for inputs
 
-    The input keys and values are case insensitive.  The value of the input
-    keyword can be accessed in two ways.  One is to use the member function
-    get_key, the other is to directly access via inputobj.xxx.yyy.  Both
-    access methods are case *sensitive*.
+    The keys and values for the input-dict are case insensitive.  But they are
+    case sensitive when accesse via inputobj.xxx.yyy.
 
     Keys and default values
     -----------------------
@@ -122,14 +120,16 @@ class Input(object):
     Examples
     --------
     >>> inp = Input({'DMET':{'max_iter':10},'MFD':{'scf_solver':'UHF'}})
-    >>> print inp.get_key('GEOMETRY', 'GeometryType')
-    xyz
-    >>> print inp.GEOMETRY.GeometryType
-    xyz
+    >>> print inp.MFD.max_iter
+    40
     >>> inp.MFD.max_iter = 20
     Traceback (most recent call last):
         ...
     SyntaxError: Overwriting  MFD.max_iter  is not allowed
+    >>> import copy; inp1 = copy.copy(inp)
+    >>> inp1.MFD.max_iter = 20
+    >>> print inp1.MFD.max_iter
+    20
     >>> inp.self_check()
     True
     >>> inp.sanity_check('IMPSOLVER', 'imp_solver', 'MP2')
@@ -144,7 +144,7 @@ class Input(object):
             self.output = open(ofname, 'w')
 
         # protect the input key.
-        self._read_only = True
+        self._readonly = True
         self._input_dict = self.get_default_dict()
         self._checker = _parse_strdict(self._inpdict_in_doc(), True)
         self._phony = ['_checker', '_input_dict'] + self.__dict__.keys()
@@ -169,33 +169,36 @@ class Input(object):
                     raise KeyError('non-existed key %s.%s' % (mod, k))
 
         # phony keywords must be saved before _merge_input2self 
-        self._merge_input2self(self._input_dict)
+        self._merge_input2self(self._input_dict, self._readonly)
 
-    def _merge_input2self(self, input_dict):
+    def _merge_input2self(self, input_dict, read_only):
         # merge input_dict with the class attributes, so that the keyword xxx
         # can be accessed directly by self.xxx
-        if not self._read_only:
+        if read_only:
+            # @property are added by function set_prop to RdOnlyClass instead
+            # of _InlineClass
+            class RdOnlyClass(_InlineClass): pass
+            # use closure set_prop to hold key for get_x
+            def set_prop(modname, key):
+                def get_x(obj):
+                    return getattr(obj, '__'+key)
+                def set_x(obj, v):
+                    raise SyntaxError('Overwriting  %s.%s  is not allowed'
+                                      % (modname, key))
+                setattr(RdOnlyClass, k, property(get_x, set_x))
+            for mod, subdict in input_dict.items():
+                self_mod = RdOnlyClass()
+                setattr(self, mod, self_mod)
+                for k,v in subdict.items():
+                    setattr(self_mod, '__'+k, v)
+                    set_prop(mod, k)
+        else:
+# TODO: use closure set_prop, as such _input_dict can be updated in set_x
             for mod, subdict in input_dict.items():
                 self_mod = _InlineClass()
                 setattr(self, mod, self_mod)
                 for k,v in subdict.items():
                     setattr(self_mod, k, v)
-        else:
-            # add a closure to hold key for get_x
-            def set_prop(modname, modclass, key):
-                def get_x(obj):
-                    return getattr(obj, '_'+key)
-                def set_x(obj, x):
-                    raise SyntaxError('Overwriting  %s.%s  is not allowed'
-                                      % (modname, key))
-                setattr(modclass, k, property(get_x, set_x))
-            for mod, subdict in input_dict.items():
-                modClass = _InlineClass
-                self_mod = modClass()
-                setattr(self, mod, self_mod)
-                for k,v in subdict.items():
-                    setattr(self_mod, '_'+k, v)
-                    set_prop(mod, modClass, k)
 
     def _inpdict_in_doc(self):
         doc = _find_between(self.__doc__, \
@@ -207,6 +210,41 @@ class Input(object):
         # intrinic member and functions to get input keys
         return filter(lambda s: not (s.startswith('_') or s in self._phony), \
                       self.__dict__.keys())
+
+    # this __copy__ has bug if call twice since some key may diff from _input_dict
+    # but if set_prop updates _input_dict, this __copy__ is OK
+    #def __copy__(self):
+    #    res = Input.__new__(Input)
+    #    inpkeys = self._remove_phony()
+    #    phonydic = [kv for kv in self.__dict__.items() \
+    #                if kv[0] not in inpkeys]
+    #    res.__dict__.update(phonydic)
+    #    res._readonly = False
+    #    res._merge_input2self(self._input_dict, False)
+    #    return res
+    def __copy__(self):
+        res = Input.__new__(Input)
+        inpkeys = self._remove_phony()
+        for m in dir(self):
+            self_mod = getattr(self, m)
+            if m in inpkeys and isinstance(self_mod, _InlineClass):
+                res_mod = _InlineClass()
+                setattr(res, m, res_mod)
+                for k in self_mod.__dict__.keys():
+                    pk = k.strip('_')
+                    v = getattr(self_mod, k)
+                    res_mod.__dict__.update(((pk, v),))
+            else:
+                res.__dict__.update(((m, self_mod),))
+        return res
+    def __deepcopy__(self, memo):
+        import copy
+        shallow = self.__copy__().__dict__
+        res = Input.__new__(Input)
+        memo[id(self)] = res
+        for k in self.__dict__.keys():
+            setattr(res, k, copy.deepcopy(shallow[k], memo))
+        return res
 
     def get_default_dict(self):
         '''The default input dict generated from __doc__'''
@@ -241,13 +279,6 @@ class Input(object):
         else:
             raise KeyError('non-existed module %s' % modname)
         return True
-
-    def get_key(self, modname, keyname):
-        '''modname and keyname are case sensitive'''
-        try:
-            return getattr(self.__getattribute__(modname), keyname)
-        except:
-            return self._input_dict[modname][keyname]
 
     def dump_keys(self):
         self.output.write('**** modules and keywords ****\n')
@@ -325,7 +356,8 @@ if __name__ == '__main__':
     #print _parse_strdict(docdict)
     #print _parse_strdict(docdict, True)
 
-    #inp = Input()
+    #import copy
+    #inp = copy.copy(Input())
     #inp.MFD.scf_solver = 'UHF'
     #inp.self_check()
     #inp.xyz = 1
