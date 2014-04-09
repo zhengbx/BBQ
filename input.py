@@ -19,6 +19,11 @@ class Input(object):
 
     The keys and values for the input-dict are case insensitive.  But they are
     case sensitive when accesse via inputobj.xxx.yyy.
+    Available functions:
+        get_default_dict
+        self_check
+        sanity_check
+        dump_keys
 
     Keys and default values
     -----------------------
@@ -43,15 +48,13 @@ class Input(object):
         'GeometryType' : value(default='xyz',
                                allow=('xyz','ring','chain','grid',
                                       'chain-h2abs','chain-habs')),
+        'Coord' : None,
     },
     'BASIS': {
         'OrbBasis': None,
             # basis to be used in ab-initio calc
         'FitBasis': None,
         'BasisLibs': None,
-        'basidx_group': [],
-            # a group of list, the list contains the id of additional basis
-            # functions for the fragment
     },
     'DMET': {
         'max_iter': value(default=20, allow=intType, limits=(1,100)),
@@ -69,6 +72,9 @@ class Input(object):
             # indicates the atoms in the fragment
         'nSitesPerFragment': 1,
             #divides the entire basis into consecutive, equal length fragments
+        'basidx_group': [],
+            # a group of list, the list contains the id of additional basis
+            # functions for the fragment
     },
     'FITTING': {
         'global_fit_dm': value(default=1, allow=(1,2,3,4)),
@@ -247,7 +253,7 @@ class Input(object):
         return res
 
     def get_default_dict(self):
-        '''The default input dict generated from __doc__'''
+        '''Return the default input dict generated from __doc__'''
         return _parse_strdict(self._inpdict_in_doc())
 
     def self_check(self):
