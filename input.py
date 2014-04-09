@@ -156,7 +156,7 @@ class Input(object):
         MOD2mod = dict(zip(all_MODS, all_mods))
         for mod, subdict in input_dict.items():
             if mod.upper() not in all_MODS:
-                raise KeyError('non-existed module %s' % mod)
+                raise KeyError('module %s is not found' % mod)
             std_mod = MOD2mod[mod.upper()]
             all_keys = self._input_dict[std_mod].keys()
             all_KEYS = [i.upper() for i in all_keys]
@@ -166,7 +166,7 @@ class Input(object):
                     std_key = KEY2key[k.upper()]
                     self._input_dict[std_mod][std_key] = v
                 else:
-                    raise KeyError('non-existed key %s.%s' % (mod, k))
+                    raise KeyError('key %s.%s is not found' % (mod, k))
 
         # phony keywords must be saved before _merge_input2self 
         self._merge_input2self(self._input_dict, self._readonly)
@@ -260,9 +260,9 @@ class Input(object):
                         if callable(self._checker[mod][k]):
                             self._checker[mod][k](getattr(self_mod, k))
                     else:
-                        raise KeyError('non-existed key %s.%s' % (mod, k))
+                        raise KeyError('key %s.%s is not found' % (mod, k))
             else:
-                raise KeyError('non-existed module %s' % mod)
+                raise KeyError('module %s is not found' % mod)
         return True
 
     def sanity_check(self, modname, keyname, val):
@@ -275,9 +275,9 @@ class Input(object):
                 else:
                     return True
             else:
-                raise KeyError('non-existed key %s.%s' % (modname, keyname))
+                raise KeyError('key %s.%s is not found' % (modname, keyname))
         else:
-            raise KeyError('non-existed module %s' % modname)
+            raise KeyError('module %s is not found' % modname)
         return True
 
     def dump_keys(self):
