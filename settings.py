@@ -22,6 +22,7 @@ param_block = {
   "nproc": 16,
   "bind": False,
 }
+DmrgExecutable = param_block['exec']
 CCExecutable = None
 #FciExecutable = "/home/qiaoni/Documents/work/dev/dmet-hubbard/fci.20121221/fci"
 

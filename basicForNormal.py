@@ -181,11 +181,11 @@ def WriteFciInput(FileName, Emb1e, nElec, Ms2=0, U=0, Int2e=None, Uhf=False, nSy
       Append1eOp(Emb1e)
    else:
       if ( Int2e is not None ):
-         Emb1eA = Emb1e[::2,::2]
-         Emb1eB = Emb1e[1::2,1::2]
          (Int2e_AA, Int2e_BB, Int2e_AB) = Int2e
       else:
          (Int2e_AA, Int2e_BB, Int2e_AB) = None, None, None
+      Emb1eA = Emb1e[::2,::2]
+      Emb1eB = Emb1e[1::2,1::2]
       Append2eOp(Int2e_AA,U,1)  # AA spin
       AppendSeparatorLine()
       Append2eOp(Int2e_BB,U,1)  # BB spin
@@ -317,9 +317,9 @@ if __name__ == '__main__':
    print "EmbFock is:\n", EmbFock
    EmbRdm = Diag1eHamiltonian(EmbFock, nElec, 1.0e-6) 
    print "EmbRdm is:\n", 2*EmbRdm
-   WriteFciInput("./FciInput", EmbFock, 2*nElec, U=0.0 )
-   Output = getoutput("../fci.20121221/fci FciInput --save-rdm1 rdm1 FciInput")
-   print Output
-   Rdm1 = Read1Rdm("rdm1")
-   print "Rdm1 is:\n", Rdm1
+   #WriteFciInput("./FciInput", EmbFock, 2*nElec, U=0.0 )
+   #Output = getoutput("../fci.20121221/fci FciInput --save-rdm1 rdm1 FciInput")
+   #print Output
+   #Rdm1 = Read1Rdm("rdm1")
+   #print "Rdm1 is:\n", Rdm1
 
