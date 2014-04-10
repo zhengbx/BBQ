@@ -39,9 +39,9 @@ class FSuperCell(object):
 
   def set_fragments(self, frag):
     sites = []
-    for f in self.frag:
-      sites += f.sites
-    if sorted(sites) != sorted(self.sites):
+    for f in frag:
+      sites += f.sites.tolist()
+    if sorted(sites) != range(self.nsites):
       raise Exception("fragment definition incompatible with supercell")
     self.fragments = frag
 
@@ -178,6 +178,9 @@ if __name__ == "__main__":
   print
 
   sc = FSuperCell(unit, np.array([2, 2]))
+  from fragments import FFragment
+  frags = [FFragment([0, 1, 2, 3], "BLOCK", "FullRdm")]
+  sc.set_fragments(frags)
   print "SuperCell"
   print sc.size
   print "Sites:"
@@ -186,6 +189,9 @@ if __name__ == "__main__":
     if (i+1)%6 == 0:
       print
   print
+  print
+  for i, f in enumerate(sc.fragments):
+    print "Fragment", i, f
   print
 
   lattice = FLattice(np.array([4, 4]), sc, "pbc")
@@ -210,6 +216,7 @@ if __name__ == "__main__":
   print
 
   print "Test Hamiltonian Class"
+
   from ham import FHamHubbard
   hub = FHamHubbard(U = 4., t = 1.)
   lattice.set_Hamiltonian(hub)
