@@ -181,11 +181,11 @@ def WriteFciInput(FileName, Emb1e, nElec, Ms2=0, U=0, Int2e=None, Uhf=False, nSy
       Append1eOp(Emb1e)
    else:
       if ( Int2e is not None ):
-         Emb1eA = Emb1e[::2,::2]
-         Emb1eB = Emb1e[1::2,1::2]
          (Int2e_AA, Int2e_BB, Int2e_AB) = Int2e
       else:
          (Int2e_AA, Int2e_BB, Int2e_AB) = None, None, None
+      Emb1eA = Emb1e[::2,::2]
+      Emb1eB = Emb1e[1::2,1::2]
       Append2eOp(Int2e_AA,U,1)  # AA spin
       AppendSeparatorLine()
       Append2eOp(Int2e_BB,U,1)  # BB spin

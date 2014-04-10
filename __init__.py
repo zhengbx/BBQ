@@ -5,7 +5,6 @@ import helpers
 import geometry
 import normalDmet
 import results
-import typeclass
 try:
     from main import *
 except:
