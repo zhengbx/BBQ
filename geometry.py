@@ -160,14 +160,17 @@ class FLattice(object):
     return neighbor1, neighbor2
 
 def BuildLatticeFromInput(inp_geom):
-  unit = FUnitCell(inp_geom["UnitCell"]["Shape"], inp_geom["UnitCell"]["Sites"])
-  sc = FSuperCell(unit, np.array(inp_geom["ClusterSize"]))
+  unit = FUnitCell(inp_geom.UnitCell["Shape"],
+                   inp_geom.UnitCell["Sites"])
+  sc = FSuperCell(unit, np.array(inp_geom.ClusterSize))
   from fragments import FFragment
-  frags = [FFragment(f["Sites"], f["ImpSolver"], f["Fitting"]) for f in inp_goem["Fragments"]]
+  frags = [FFragment(f["Sites"], f["ImpSolver"], f["Fitting"])
+           for f in inp_geom.Fragments]
   sc.set_fragments(frags)
 
-  assert((np.array(inp_geom["LatticeSize"]) % np.array(inp_geom["ClusterSize"])).allclose(0.))
-  lattice = FLattice(np.array(inp_geom["LatticeSize"])/np.array(inp_geom["ClusterSize"]), sc, inp_geom["BoundaryCondition"])
+  assert(np.allclose(np.array(inp_geom.LatticeSize) % np.array(inp_geom.ClusterSize), 0.))
+  lattice = FLattice(np.array(inp_geom.LatticeSize)/np.array(inp_geom.ClusterSize),
+                     sc, inp_geom.BoundaryCondition)
   return lattice
 
 if __name__ == "__main__":

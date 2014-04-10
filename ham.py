@@ -35,5 +35,7 @@ class FHamHubbard(object):
     return (None, self.U)
 
 def Hamiltonian(inp_ham):
-  if inp_ham["Type"] == "Hubbard":
-    return FHamHubbard(inp_ham["U"], t = 1.)
+  if inp_ham.Type == "Hubbard":
+    return FHamHubbard(inp_ham.U, t = 1.)
+  else:
+    raise KeyError('key %s not exists' % inp_ham.Type)

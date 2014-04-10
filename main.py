@@ -14,9 +14,10 @@ from helpers import mdot, ExtractSpinComp, CombineSpinComps
 from vcor_fit import FitVcorComponent
 from results import FDmetResult
 from diis import FDiisContext
-from input import Input
+from inputs import Input
 from normalDmet import NormalDmet
 from geometry import BuildLatticeFromInput
+from ham import Hamiltonian
 # .. work in progress
 #from hamiltonian import Hamiltonian, Geometry
 #from lattice_model import *
@@ -67,17 +68,12 @@ def FitCorrelationPotential(Input, GEOM, TYPE, EmbMfdHam, nEmb, RdmHl):
 
 
 
-def main(argv):
+def main(inputdict):
 
-   if(len(argv) !=1):
-      raise Exception("No input file or more than one input file specified.")
-   else:
-      np.set_printoptions(precision=3,linewidth=10060,suppress=False,threshold=np.nan)
-
-   #input parameters should be read from file
-   inputfile = open(argv[0], 'r')
-   obj_code = 'dict({})'.format(inputfile.read())
-   inputdict = eval(obj_code)
+   ##input parameters should be read from file
+   #inputfile = open(argv[0], 'r')
+   #obj_code = 'dict({})'.format(inputfile.read())
+   #inputdict = eval(obj_code)
    Inp = Input(inputdict)
    #Inp = Input({'DMET':{'max_iter':10},'MFD':{'scf_solver':'UHF'}})
 
@@ -97,10 +93,10 @@ def main(argv):
    TYPE = NormalDmet
 
    MfdHam = Lattice.get_h0()
-   MfdHam += initguess
+   #FIXME: MfdHam += initguess
 
    FSCoreHam = Lattice.get_h0()
-  
+
    Fragments = Lattice.supercell.fragments
 
    dc = FDiisContext(DiisDim)
@@ -167,5 +163,31 @@ def main(argv):
    print "Final residual on unit-cell vcor is {:.2e}"  %(dVsum)
 
 
-main(sys.argv[1:])
+def parseOpt():
+    if(len(sys.argv) != 2):
+        raise Exception("No input file or more than one input file specified.")
+    else:
+        np.set_printoptions(precision=3,linewidth=10060,suppress=False,threshold=np.nan)
+    inputfile = sys.argv[1]
+    moreoptions = sys.argv[1:]
+    return inputfile, moreoptions
+
+if __name__ == '__main__':
+    #inpfile = parseOpt()[0]
+    sites = [(np.array([0., 0.]), "X")]
+    shape = np.array([
+        [1., 0.],
+        [0., 1.],
+    ])
+    inpdic = {
+        'HAMILTONIAN': {'Type': 'Hubbard', 'U': 3,},
+        'GEOMETRY':
+        {'UnitCell': {'Sites':sites, 'Shape':shape},
+         'ClusterSize': np.array([2, 2]),
+         'LatticeSize': np.array([8, 8]),
+         'Fragments': [{"Sites":range(4), "ImpSolver":'Fci',
+                        "Fitting":'FullRdm'},],
+         'BoundaryCondition': 'pbc',}
+    }
+    main(inpdic)
 
