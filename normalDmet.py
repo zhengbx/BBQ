@@ -105,9 +105,9 @@ class NormalDmet(object):
       if U is not None :
          HlOption = OptionForHlMethod(HlMethod,FileNameRdm,BasePath,self.OrbType,nSys=EmbFock.shape[0], U=U, nSysTrace = nSysTrace)
          if self.OrbType == "RHF":
-            WriteFciInput(HlInputName, EmbFock, nElec, U=1.0 )
+            WriteFciInput(HlInputName, EmbFock, nElec, U=U )
          elif self.OrbType == "UHF":
-            WriteFciInput(HlInputName, EmbFock, nElec, U=1.0, Uhf=True )
+            WriteFciInput(HlInputName, EmbFock, nElec, U=U, Uhf=True )
       else :
          assert(Int2e_ is not None)
          HlOption = OptionForHlMethod(HlMethod,FileNameRdm,BasePath,self.OrbType,nSys=EmbFock.shape[0], nSysTrace = nSysTrace)

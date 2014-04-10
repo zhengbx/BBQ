@@ -21,7 +21,7 @@ CCExecutable = None
 #FciExecutable = "/home/qiaoni/Documents/work/dev/dmet-hubbard/fci.20121221/fci"
 
 TmpDir = None
-TmpDir = "./fci"
+TmpDir = "./bbqq/fci"
 LibDir = "./libdir"
 #TmpDir = "/home/qiaoni/Templates/"
 

@@ -299,13 +299,14 @@ if __name__ == '__main__':
    #   Fock[i,:,:] = np.random.random((nOrb,nOrb))
    #   Fock[i,:,:] = Fock[i,:,:] + Fock[i,:,:].T
    #Ews, Orbs = Diag1eGQNHamiltonian(Fock)  
-   #DealGQNOrbitals(Ews, Orbs, nOcc, 1.0e-3)  
+   #Rdm, Mu, Gap =  DealGQNOrbitals(Ews, Orbs, nOcc, 1.0e-3)  
+   #print Rdm.shape
 
    Fock = np.random.random((nOrb,nOrb))
    Fock = Fock + Fock.T
    Rdm, Mu, Gap = Diag1eHamiltonian(Fock, nOcc, 1.0e-6) 
-   #ew,ev = la.eigh(Fock)
-   #Rdm = np.dot(ev[:,:nOcc],ev[:,:nOcc].T)
+   ew,ev = la.eigh(Fock)
+   Rdm = np.dot(ev[:,:nOcc],ev[:,:nOcc].T)
    ImpSites = [0,3]
    ThrBathSvd = 1.0e-8
    EmbBasis = MakeEmbeddingBasis(ImpSites, Rdm, ThrBathSvd)
