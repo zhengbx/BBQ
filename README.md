@@ -12,4 +12,4 @@ Installation
 
 3. Change startup file, in which export PYTHONPATH and add `pwd` to it . e.g.
 
-        echo 'export PYTHONPATH='`pwd`'$PYTHONPATH:' >> ~/.bashrc
+        cd .. && echo 'export PYTHONPATH='`pwd`':$PYTHONPATH' >> ~/.bashrc
