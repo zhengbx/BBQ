@@ -16,6 +16,7 @@ from results import FDmetResult
 from diis import FDiisContext
 from input import Input
 from normalDmet import NormalDmet
+from geometry import BuildLatticeFromInput
 # .. work in progress
 #from hamiltonian import Hamiltonian, Geometry
 #from lattice_model import *
@@ -80,14 +81,12 @@ def main(argv):
    Inp = Input(inputdict)
    #Inp = Input({'DMET':{'max_iter':10},'MFD':{'scf_solver':'UHF'}})
 
-
-   # ... work in progress
-   #GEOM = Geometry(Inp.GEOMETRY) 
-   #ModelParams = {'t':1, 'U':1.}
+   Lattice = BuildLatticeFromInput(Inp.GEOMETRY)
    
-   #Lattice = FLatticeModel.__init__(FHubbardModel1d(**ModelParams),GEOM.UnitCell, GEOM.LatticeVectors, ["U","t"], GEOM.MaxRangeT)
-   #print Lattice.UnitCell
-   #HAM = Hamiltonian(Inp.HAMILTONIAN)
+   #print Lattice.UnitCell print function not implemented yet
+   HAM = Hamiltonian(Inp.HAMILTONIAN)
+
+   Lattice.set_Hamiltonian(HAM)
 
    DmetMaxIt = Inp.DMET.max_iter
    ThrdVcor = Inp.DMET.conv_threshold
@@ -97,13 +96,12 @@ def main(argv):
 
    TYPE = NormalDmet
 
-   # ... work in progress 
-   MfdHam = Hamiltonian.CoreH()
+   MfdHam = Lattice.get_h0()
    MfdHam += initguess
 
-   FSCoreHam = Hamiltonian.CoreH()
+   FSCoreHam = Lattice.get_h0()
   
-   Fragments = GEOM.Fragments
+   Fragments = Lattice.supercell.fragments
 
    dc = FDiisContext(DiisDim)
 
@@ -121,9 +119,10 @@ def main(argv):
        FragmentResults = []
        FragmentPotentials = []
        for (iFragment,Fragment) in enumerate(Fragments):
-           EmbBasis = TYPE.MakeEmbBasis(Rdm, Fragment)
-           EmbHam, EmbMfdHam = TYPE.MakeEmbHam(EmbBasis, MfdHam, HAM, Fragment)
-           HlResults = TYPE.ImpSolver(EmbHam, EmbMfdHam,Fragment)
+         if Fragment.get_emb_method() is not None:
+           EmbBasis = TYPE.MakeEmbBasis(Rdm, Fragment.get_sites())
+           EmbHam, EmbMfdHam = TYPE.MakeEmbHam(EmbBasis, MfdHam, HAM, Fragment.get_sites())
+           HlResults = TYPE.ImpSolver(EmbHam, EmbMfdHam, Fragment.get_emb_method())
            FragmentResults.append((Fragment, HlResults))
            vloc = FitCorrelationPotential(Inp, GEOM, TYPE, EmbMfdHam, TYPE.MakeEmbBasis.nEmb, RdmHl)
            FragmentPotentials.append(vloc)

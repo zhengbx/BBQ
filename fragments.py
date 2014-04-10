@@ -10,3 +10,9 @@ class FFragment(object):
   def __str__(self):
     s = "Sites: %s   Impurity Solver: %s   Fitting Method: %s" % (self.sites, self.method, self.fitting)
     return s
+
+  def get_sites(self):
+    return self.sites
+
+  def get_emb_method(self):
+    return self.method
