@@ -4,19 +4,20 @@ import itertools as it
 
 from numpy.random import rand
 
-class UnitCell(object):
+class FUnitCell(object):
   def __init__(self, size, sites): # sites is a list of tuples
     self.size = np.array(size) # unit cell shape
-    self.dim = len(self.size.shape)
+    assert(self.size.shape[0] == self.size.shape[1])
+    self.dim = self.size.shape[0]
     self.sites = []
     self.names = []
     for site in sites:
       self.sites.append(np.array(site[0])) # coordination
-      self.names.append(sites[1])
+      self.names.append(site[1])
     self.nsites = len(self.sites)
 
 class FSuperCell(object):
-  def __init__(self, unitcell, size, sites):
+  def __init__(self, unitcell, size):
     self.unitcell = unitcell
     self.dim = unitcell.dim
     self.csize = np.array(size)
@@ -30,8 +31,8 @@ class FSuperCell(object):
 
     for p in it.product(*tuple([range(a) for a in self.csize])):
       self.unitcell_list.append(np.array(p))
-      for i in len(unitcell.sites):
-        self.sites.append(unitcell.size * np.array(p) + unitcell.sites[i])
+      for i in range(len(unitcell.sites)):
+        self.sites.append(np.dot(np.array(p), unitcell.size)  + unitcell.sites[i])
         self.names.append(unitcell.names[i])
 
     self.fragments = None
@@ -61,7 +62,7 @@ class FLattice(object):
 
     self.scsize = np.array(size)
     self.size = self.scsize * sc.size
-    self.nscells = np.product(self.csize)
+    self.nscells = np.product(self.scsize)
     self.nsites = sc.nsites * self.nscells
 
     self.sites = []
@@ -69,15 +70,27 @@ class FLattice(object):
     self.supercell_list = []
     for p in it.product(*tuple([range(a) for a in self.scsize])):
       self.supercell_list.append(np.array(p))
-      for i in len(sc.sites):
-        self.sites.append(sc.size * np.array(p) + sc.sites[i])
+      for i in range(len(sc.sites)):
+        self.sites.append(np.dot(np.array(p), sc.size)  + sc.sites[i])
         self.names.append(sc.names[i])
    
     self.h0 = None
     self.h0_kspace = None
+    self.neighbor1 = None
+    self.neighbor2 = None
   
-  def build_h0(self, Ham):
-    self.h0 = Ham.build_h0(self)
+  def set_Hamiltonian(self, Ham):
+    self.Ham = Ham
+
+  def get_h0(self, kspace = False):
+    if kspace:
+      if self.h0_kspace is None:
+        self.h0_kspace = self.FFTtoK(self.get_h0())
+      return self.h0_kspace
+    else:
+      if self.h0 is None:
+        self.h0 = self.Ham.build_h0(self)
+      return self.h0
 
   def FFTtoK(self, A):
     # currently only for pbc
@@ -95,8 +108,8 @@ class FLattice(object):
       return C
 
   def get_kpoints(self):
-    assert(self.bc == 1)
-    self.kpoints = [np.fft.fftfreq(self.scsize[d], 1/(2*np.pi)) for d in range(self.dim)]
+    kpoints = [np.fft.fftfreq(self.scsize[d], 1/(2*np.pi)) for d in range(self.dim)]
+    return kpoints
 
   def expand(self, A):
     # expand reduced matrices, eg. Hopping matrix
@@ -109,10 +122,9 @@ class FLattice(object):
         nonzero.append(i)
     for i in range(self.nscells):
       for j in nonzero:
-        # FIXME transform relative position to matrix indice        
-        coupled = self.cidx(np.array(self.cpos(i)) + np.array(self.cpos(j)))
-        h[i*nfragsite: (i+1)*nfragsite, coupled*nfragsite: (coupled + 1)*nfragsite] = h_reduced[j]
-    return h
+        pos = (self.supercell_list[i] + self.supercell_list[j]) % self.scsize
+        idx = self.supercell_list.index(pos)
+        B[i*scnsites:(i+1)*scnsites, idx*scnsites:(idx+1)*scnsites] = A[j]
 
   def get_neighbor(self, dis = 1., name = None, sites = None):
     # return neighbors
@@ -130,19 +142,70 @@ class FLattice(object):
       for s in sites:
         assert(self.names[s] in name)
     
-    neighbor1 = [] # in lattice
-    neighbor2 = [] # through boundary
+    if self.neighbor1 is None or self.neighbor2 is None:
+      self.neighbor1 = [] # in lattice
+      self.neighbor2 = [] # through boundary
 
-    shifts = [np.array(x) for x in it.product([-1, 0, 1], repeat = self.dim) if x != [0] * self.dim]
-    for s1 in sites:
-      for s2 in range(self.nsites):
-        if self.names[s2] in name and s2 > s1:
-          if la.norm(self.sites[s2] - self.sites[s1]) - dis < 1e-5:
-            neighbor1.append((s1, s2))
-          else:
-            for shift in shifts:
-              if la.norm(self.sites[s2]-self.sites[s1] - shift * self.size) - dis < 1e-5:
-                neighbor2.append((s1, s2))
-                break
+      shifts = [np.array(x) for x in it.product([-1, 0, 1], repeat = self.dim) if x != [0] * self.dim]
+      # first find supercell neighbors
+      for s1 in sites:
+        sc1 = s1 % self.supercell.nsites
+        sc2 = self.get_neighborcells(sc1)
 
-    return neighbor1, neighbor2
+        for s2 in range(self.nsites):
+          if self.names[s2] in name and s2 > s1:
+            if la.norm(self.sites[s2] - self.sites[s1]) - dis < 1e-5:
+              self.neighbor1.append((s1, s2))
+            else:
+              for shift in shifts:
+                if la.norm(self.sites[s2]-self.sites[s1] - np.dot(shift, self.size)) - dis < 1e-5:
+                  self.neighbor2.append((s1, s2))
+                  break
+
+    return self.neighbor1, self.neighbor2
+
+if __name__ == "__main__":
+  # build a 2d square lattice
+  sites = [(np.array([0., 0.]), "X")]
+  shape = np.array([
+    [1., 0.],
+    [0., 1.],
+  ])
+  unit = FUnitCell(shape, sites)
+  print "UnitCell"
+  print  unit.size
+  print "Sites:"
+  for i in range(len(unit.sites)):
+    print unit.names[i], unit.sites[i], "\t",
+    if (i+1)%6 == 0:
+      print
+  print
+  print
+
+  sc = FSuperCell(unit, np.array([2, 2]))
+  print "SuperCell"
+  print sc.size
+  print "Sites:"
+  for i in range(len(sc.sites)):
+    print sc.names[i], sc.sites[i], "\t",
+    if (i+1)%6 == 0:
+      print
+  print
+  print
+
+  lattice = FLattice(np.array([8, 8]), sc, "pbc")
+  print "Lattice"
+  print lattice.size
+  print "Sites:"
+  for i in range(len(lattice.sites)):
+    print lattice.names[i], lattice.sites[i], "\t",
+    if (i+1)%6 == 0:
+      print
+  print
+  
+  print "Lattice Functions"
+  print "kpoints"
+  print lattice.get_kpoints()
+  print "nearest neigbors"
+  print lattice.get_neighbor()[0]
+  print lattice.get_neighbor()[1]
