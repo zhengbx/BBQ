@@ -1,5 +1,5 @@
 #
-# File: input.py
+# File: inputs.py
 # Author: Qiming Sun <qimings@princeton.edu>
 #
 
@@ -28,7 +28,8 @@ class Input(object):
     Keys and default values
     -----------------------
     'HAMILTONIAN': {
-        'hammil': value(default='hub', allow=('hub','qc','bcs','hubhol')),
+        'Type': value(default='Hubbard',
+                      allow=('Hubbard','qc','bcs','hubhol')),
             # type of hamiltonian that is to be solved
         't': None,
             # hopping matrix
@@ -49,6 +50,11 @@ class Input(object):
                                allow=('xyz','ring','chain','grid',
                                       'chain-h2abs','chain-habs')),
         'Coord' : None,
+        'UnitCell': None,
+        'ClusterSize': None,
+        'LatticeSize': None,
+        'Fragments': None,
+        'BoundaryCondition': None,
     },
     'BASIS': {
         'OrbBasis': None,

@@ -15,7 +15,8 @@
 #    Gerald Knizia, 2012
 
 #FciExecutable = "/home/cgk/dev/fci/fci"
-FciExecutable = "/home/qiaoni/Documents/work/dev/dmet-hubbard/fci.20121221/fci"
+#FciExecutable = "/home/qiaoni/Documents/work/dev/dmet-hubbard/fci.20121221/fci"
+FciExecutable = '/home/sunqm/Software/src/QC/fci.20121221/fci'
 param_block = {
   "exec": "/home/boxiao/block/block.spin_adapted",
   "M": 400,
@@ -27,7 +28,7 @@ CCExecutable = None
 #FciExecutable = "/home/qiaoni/Documents/work/dev/dmet-hubbard/fci.20121221/fci"
 
 TmpDir = None
-TmpDir = "./fci"
+TmpDir = "./"
 LibDir = "./libdir"
 #TmpDir = "/home/qiaoni/Templates/"
 
