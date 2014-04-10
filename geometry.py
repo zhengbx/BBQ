@@ -2,8 +2,6 @@ import numpy as np
 import numpy.linalg as la
 import itertools as it
 
-from numpy.random import rand
-
 class FUnitCell(object):
   def __init__(self, size, sites): # sites is a list of tuples
     self.size = np.array(size) # unit cell shape
@@ -57,6 +55,7 @@ class FLattice(object):
       self.bc = 1
     elif bc == "apbc":
       self.bc = -1
+      print "Warning: currently not fully supported"
     else:
       self.bc = bc
 
@@ -95,7 +94,7 @@ class FLattice(object):
   def FFTtoK(self, A):
     # currently only for pbc
     assert(self.bc == 1)
-    B = A.reshpae(tuple(self.scsize) + A.shape[-2:])
+    B = A.reshape(tuple(self.scsize) + A.shape[-2:])
     return np.fft.fftn(B, axes = range(self.dim)).reshape(A.shape)
 
   def FFTtoT(self, A):
@@ -142,27 +141,23 @@ class FLattice(object):
       for s in sites:
         assert(self.names[s] in name)
     
-    if self.neighbor1 is None or self.neighbor2 is None:
-      self.neighbor1 = [] # in lattice
-      self.neighbor2 = [] # through boundary
+    neighbor1 = []
+    neighbor2 = []
 
-      shifts = [np.array(x) for x in it.product([-1, 0, 1], repeat = self.dim) if x != [0] * self.dim]
-      # first find supercell neighbors
-      for s1 in sites:
-        sc1 = s1 % self.supercell.nsites
-        sc2 = self.get_neighborcells(sc1)
+    shifts = [np.array(x) for x in it.product([-1, 0, 1], repeat = self.dim) if x != [0] * self.dim]
+    # first find supercell neighbors
+    for s1 in sites:
+      for s2 in range(self.nsites):
+        if self.names[s2] in name:
+          if abs(la.norm(self.sites[s2] - self.sites[s1]) - dis) < 1e-5:
+            neighbor1.append((s1, s2))
+          else:
+            for shift in shifts:
+              if abs(la.norm(self.sites[s2]-self.sites[s1] - np.dot(shift, self.size)) - dis) < 1e-5:
+                neighbor2.append((s1, s2))
+                break
 
-        for s2 in range(self.nsites):
-          if self.names[s2] in name and s2 > s1:
-            if la.norm(self.sites[s2] - self.sites[s1]) - dis < 1e-5:
-              self.neighbor1.append((s1, s2))
-            else:
-              for shift in shifts:
-                if la.norm(self.sites[s2]-self.sites[s1] - np.dot(shift, self.size)) - dis < 1e-5:
-                  self.neighbor2.append((s1, s2))
-                  break
-
-    return self.neighbor1, self.neighbor2
+    return neighbor1, neighbor2
 
 if __name__ == "__main__":
   # build a 2d square lattice
@@ -193,7 +188,7 @@ if __name__ == "__main__":
   print
   print
 
-  lattice = FLattice(np.array([8, 8]), sc, "pbc")
+  lattice = FLattice(np.array([4, 4]), sc, "pbc")
   print "Lattice"
   print lattice.size
   print "Sites:"
@@ -202,10 +197,27 @@ if __name__ == "__main__":
     if (i+1)%6 == 0:
       print
   print
-  
+
+  print
   print "Lattice Functions"
   print "kpoints"
   print lattice.get_kpoints()
   print "nearest neigbors"
-  print lattice.get_neighbor()[0]
-  print lattice.get_neighbor()[1]
+  #print lattice.get_neighbor()[0]
+  #print lattice.get_neighbor()[1]
+  print "Inside lattice", lattice.get_neighbor(sites = [0,1,2,3])[0]
+  print "On boundary   ", lattice.get_neighbor(sites = [0,1,2,3])[1]
+  print
+
+  print "Test Hamiltonian Class"
+  from ham import FHamHubbard
+  hub = FHamHubbard(U = 4., t = 1.)
+  lattice.set_Hamiltonian(hub)
+  print "Core Hamiltonian (real space)"
+  print lattice.get_h0()
+  print
+  print "Core Hamiltonian (k-space)"
+  print lattice.get_h0(kspace = True)
+  print
+  print "Test FFT"
+  print la.norm(lattice.FFTtoT(lattice.FFTtoK(lattice.get_h0())) - lattice.get_h0())
