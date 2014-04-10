@@ -17,10 +17,13 @@ class Input(object):
 # (lower_bound, upper_bound) for the given value.
     ''' Parse inputs and do very simple check for inputs
 
-    The input keys and values are case insensitive.  The value of the input
-    keyword can be accessed in two ways.  One is to use the member function
-    get_key, the other is to directly access via inputobj.xxx.yyy.  Both
-    access methods are case *sensitive*.
+    The keys and values for the input-dict are case insensitive.  But they are
+    case sensitive when accesse via inputobj.xxx.yyy.
+    Available functions:
+        get_default_dict
+        self_check
+        sanity_check
+        dump_keys
 
     Keys and default values
     -----------------------
@@ -45,15 +48,13 @@ class Input(object):
         'GeometryType' : value(default='xyz',
                                allow=('xyz','ring','chain','grid',
                                       'chain-h2abs','chain-habs')),
+        'Coord' : None,
     },
     'BASIS': {
         'OrbBasis': None,
             # basis to be used in ab-initio calc
         'FitBasis': None,
         'BasisLibs': None,
-        'basidx_group': [],
-            # a group of list, the list contains the id of additional basis
-            # functions for the fragment
     },
     'DMET': {
         'max_iter': value(default=20, allow=intType, limits=(1,100)),
@@ -66,6 +67,14 @@ class Input(object):
             # RAND = random,
             # MAN = user specified,
             # None
+        'frag_group': [],
+            # a group of frag-list, every frag-list is a list of atom id which
+            # indicates the atoms in the fragment
+        'nSitesPerFragment': 1,
+            #divides the entire basis into consecutive, equal length fragments
+        'basidx_group': [],
+            # a group of list, the list contains the id of additional basis
+            # functions for the fragment
     },
     'FITTING': {
         'global_fit_dm': value(default=1, allow=(1,2,3,4)),
@@ -86,15 +95,10 @@ class Input(object):
                              allow=('local','global','oneshot')),
             # detailed fitting method
         'fitpot_damp_fac': value(default=0.5, limits=(0,1)),
-        'frag_group': [],
-            # a group of frag-list, every frag-list is a list of atom id which
-            # indicates the atoms in the fragment
         'vfit_init': 0,
             # initial guess for fitting method.  This key only affects the DM
             # fitting procedure, i.e. which fitting potential to start with.
             # It is different from DMET.init_guess.
-        'nSitesPerFragment': 1,
-            #divides the entire basis into consecutive, equal length fragments
     },
     'IMPSOLVER': {
         'imp_solver': value(default='FCI', allow=('FCI','CC')),
@@ -122,17 +126,22 @@ class Input(object):
     Examples
     --------
     >>> inp = Input({'DMET':{'max_iter':10},'MFD':{'scf_solver':'UHF'}})
+    >>> print inp.MFD.max_iter
+    40
     >>> inp.MFD.max_iter = 20
+    Traceback (most recent call last):
+        ...
+    SyntaxError: Overwriting  MFD.max_iter  is not allowed
+    >>> import copy; inp1 = copy.copy(inp)
+    >>> inp1.MFD.max_iter = 20
+    >>> print inp1.MFD.max_iter
+    20
     >>> inp.self_check()
     True
     >>> inp.sanity_check('IMPSOLVER', 'imp_solver', 'MP2')
     Traceback (most recent call last):
         ...
     ValueError: MP2 is not one of ('FCI', 'CC')
-    >>> print inp.get_key('GEOMETRY', 'GeometryType')
-    xyz
-    >>> print inp.GEOMETRY.GeometryType
-    xyz
     '''
     def __init__(self, input_dict={}, ofname=None):
         if ofname == None:
@@ -140,8 +149,11 @@ class Input(object):
         else:
             self.output = open(ofname, 'w')
 
+        # protect the input key.
+        self._readonly = True
         self._input_dict = self.get_default_dict()
         self._checker = _parse_strdict(self._inpdict_in_doc(), True)
+        self._phony = ['_checker', '_input_dict'] + self.__dict__.keys()
 
         # merge input keywords with the default keywords
         # input keywords are case insensitive
@@ -150,7 +162,7 @@ class Input(object):
         MOD2mod = dict(zip(all_MODS, all_mods))
         for mod, subdict in input_dict.items():
             if mod.upper() not in all_MODS:
-                raise KeyError('non-existed module %s' % mod)
+                raise KeyError('module %s is not found' % mod)
             std_mod = MOD2mod[mod.upper()]
             all_keys = self._input_dict[std_mod].keys()
             all_KEYS = [i.upper() for i in all_keys]
@@ -160,20 +172,39 @@ class Input(object):
                     std_key = KEY2key[k.upper()]
                     self._input_dict[std_mod][std_key] = v
                 else:
-                    raise KeyError('non-existed key %s.%s' % (mod, k))
+                    raise KeyError('key %s.%s is not found' % (mod, k))
 
         # phony keywords must be saved before _merge_input2self 
-        self._phony = self.__dict__
-        self._merge_input2self(self._input_dict)
+        self._merge_input2self(self._input_dict, self._readonly)
 
-    def _merge_input2self(self, input_dict):
+    def _merge_input2self(self, input_dict, read_only):
         # merge input_dict with the class attributes, so that the keyword xxx
         # can be accessed directly by self.xxx
-        for mod, subdict in input_dict.items():
-            setattr(self, mod, _InlineClass())
-            for k,v in subdict.items():
-                self_mod = getattr(self, mod)
-                setattr(self_mod, k, v)
+        if read_only:
+            # @property are added by function set_prop to RdOnlyClass instead
+            # of _InlineClass
+            class RdOnlyClass(_InlineClass): pass
+            # use closure set_prop to hold key for get_x
+            def set_prop(modname, key):
+                def get_x(obj):
+                    return getattr(obj, '__'+key)
+                def set_x(obj, v):
+                    raise SyntaxError('Overwriting  %s.%s  is not allowed'
+                                      % (modname, key))
+                setattr(RdOnlyClass, k, property(get_x, set_x))
+            for mod, subdict in input_dict.items():
+                self_mod = RdOnlyClass()
+                setattr(self, mod, self_mod)
+                for k,v in subdict.items():
+                    setattr(self_mod, '__'+k, v)
+                    set_prop(mod, k)
+        else:
+# TODO: use closure set_prop, as such _input_dict can be updated in set_x
+            for mod, subdict in input_dict.items():
+                self_mod = _InlineClass()
+                setattr(self, mod, self_mod)
+                for k,v in subdict.items():
+                    setattr(self_mod, k, v)
 
     def _inpdict_in_doc(self):
         doc = _find_between(self.__doc__, \
@@ -184,10 +215,45 @@ class Input(object):
         # Since the input keys have been merged to the class, remove the
         # intrinic member and functions to get input keys
         return filter(lambda s: not (s.startswith('_') or s in self._phony), \
-                      self.__dict__)
+                      self.__dict__.keys())
+
+    # this __copy__ has bug if call twice since some key may diff from _input_dict
+    # but if set_prop updates _input_dict, this __copy__ is OK
+    #def __copy__(self):
+    #    res = Input.__new__(Input)
+    #    inpkeys = self._remove_phony()
+    #    phonydic = [kv for kv in self.__dict__.items() \
+    #                if kv[0] not in inpkeys]
+    #    res.__dict__.update(phonydic)
+    #    res._readonly = False
+    #    res._merge_input2self(self._input_dict, False)
+    #    return res
+    def __copy__(self):
+        res = Input.__new__(Input)
+        inpkeys = self._remove_phony()
+        for m in dir(self):
+            self_mod = getattr(self, m)
+            if m in inpkeys and isinstance(self_mod, _InlineClass):
+                res_mod = _InlineClass()
+                setattr(res, m, res_mod)
+                for k in self_mod.__dict__.keys():
+                    pk = k.strip('_')
+                    v = getattr(self_mod, k)
+                    res_mod.__dict__.update(((pk, v),))
+            else:
+                res.__dict__.update(((m, self_mod),))
+        return res
+    def __deepcopy__(self, memo):
+        import copy
+        shallow = self.__copy__().__dict__
+        res = Input.__new__(Input)
+        memo[id(self)] = res
+        for k in self.__dict__.keys():
+            setattr(res, k, copy.deepcopy(shallow[k], memo))
+        return res
 
     def get_default_dict(self):
-        '''The default input dict generated from __doc__'''
+        '''Return the default input dict generated from __doc__'''
         return _parse_strdict(self._inpdict_in_doc())
 
     def self_check(self):
@@ -200,9 +266,9 @@ class Input(object):
                         if callable(self._checker[mod][k]):
                             self._checker[mod][k](getattr(self_mod, k))
                     else:
-                        raise KeyError('non-existed key %s.%s' % (mod, k))
+                        raise KeyError('key %s.%s is not found' % (mod, k))
             else:
-                raise KeyError('non-existed module %s' % mod)
+                raise KeyError('module %s is not found' % mod)
         return True
 
     def sanity_check(self, modname, keyname, val):
@@ -215,17 +281,10 @@ class Input(object):
                 else:
                     return True
             else:
-                raise KeyError('non-existed key %s.%s' % (modname, keyname))
+                raise KeyError('key %s.%s is not found' % (modname, keyname))
         else:
-            raise KeyError('non-existed module %s' % modname)
+            raise KeyError('module %s is not found' % modname)
         return True
-
-    def get_key(self, modname, keyname):
-        '''modname and keyname are case sensitive'''
-        try:
-            return getattr(self.__getattribute__(modname), keyname)
-        except:
-            return self._input_dict[modname][keyname]
 
     def dump_keys(self):
         self.output.write('**** modules and keywords ****\n')
@@ -253,7 +312,7 @@ def dump_inputfile(fileobj):
 
 class _InlineClass(object):
     def __dir__(self):
-        return self.__dict__.keys()
+        return filter(lambda s: not s.startswith('_'), self.__dict__.keys())
 
 def _find_between(s, start, end):
     ''' sub-strings between the start string and end string
@@ -303,7 +362,8 @@ if __name__ == '__main__':
     #print _parse_strdict(docdict)
     #print _parse_strdict(docdict, True)
 
-    #inp = Input()
+    #import copy
+    #inp = copy.copy(Input())
     #inp.MFD.scf_solver = 'UHF'
     #inp.self_check()
     #inp.xyz = 1

@@ -16,7 +16,13 @@
 
 #FciExecutable = "/home/cgk/dev/fci/fci"
 FciExecutable = "/home/qiaoni/Documents/work/dev/dmet-hubbard/fci.20121221/fci"
-DmrgExecutable = None
+param_block = {
+  "exec": "/home/boxiao/block/block.spin_adapted",
+  "M": 400,
+  "nproc": 16,
+  "bind": False,
+}
+DmrgExecutable = param_block['exec']
 CCExecutable = None
 #FciExecutable = "/home/qiaoni/Documents/work/dev/dmet-hubbard/fci.20121221/fci"
 
