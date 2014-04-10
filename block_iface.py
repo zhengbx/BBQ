@@ -6,7 +6,7 @@ from tempfile import mkdtemp
 import os
 import struct
 
-from utils import WriteFile, ReadFile
+from helpers import WriteFile, ReadFile
 from settings import TmpDir, param_block
 
 def empty_line():
