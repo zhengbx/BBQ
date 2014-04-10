@@ -4,7 +4,7 @@ coord = [['H', 0.,0.,-1.],
           ['H', 0.,0., 1.]]
 
 keys = {
-'HAMILTONIAN': {'hammil': 'qc', },
+'HAMILTONIAN': {'Type': 'qc', },
 'GEOMETRY': {'GeometryType' : 'xyz',
              'Coord': coord },
 'BASIS': {'OrbBasis': 'STO-3G', },

@@ -4,6 +4,7 @@
 #
 
 import os, sys
+import numpy
 
 __all__ = ['Input', 'dump_inputfile']
 __doc__ = 'Handle the input keywords.'
@@ -50,11 +51,16 @@ class Input(object):
                                allow=('xyz','ring','chain','grid',
                                       'chain-h2abs','chain-habs')),
         'Coord' : None,
-        'UnitCell': None,
+        'UnitCell': {
+            'Sites': [(numpy.array([0., 0.]), 'X')],
+            'Shape': numpy.eye(2)},
         'ClusterSize': None,
         'LatticeSize': None,
-        'Fragments': None,
-        'BoundaryCondition': None,
+        'Fragments': [{'Sites': range(4),
+                       'ImpSolver': 'Fci',
+                       'Fitting': 'FullRdm'},],
+        'BoundaryCondition': value(default='pbc',
+                                   alllow=('pbc', 'apbc')),
     },
     'BASIS': {
         'OrbBasis': None,
@@ -134,17 +140,17 @@ class Input(object):
 
     Examples
     --------
-    >>> inp = Input({'DMET':{'max_iter':10},'MFD':{'scf_solver':'UHF'}})
-    >>> print inp.MFD.max_iter
-    40
-    >>> inp.MFD.max_iter = 20
+    >>> inp = Input({'DMET':{'max_iter':10}, 'MFD':{'scf_solver':'uhf'}})
+    >>> print inp.MFD.scf_solver
+    UHF
+    >>> inp.MFD.scf_solver = 'RHF'
     Traceback (most recent call last):
         ...
-    SyntaxError: Overwriting  MFD.max_iter  is not allowed
+    SyntaxError: Overwriting  MFD.scf_solver  is not allowed
     >>> import copy; inp1 = copy.copy(inp)
-    >>> inp1.MFD.max_iter = 20
-    >>> print inp1.MFD.max_iter
-    20
+    >>> inp1.MFD.scf_solver = 'RHF'
+    >>> print inp1.MFD.scf_solver
+    RHF
     >>> inp.self_check()
     True
     >>> inp.sanity_check('IMPSOLVER', 'imp_solver', 'MP2')
@@ -161,9 +167,10 @@ class Input(object):
         # protect the input key.
         self._readonly = True
         self._input_dict = self.get_default_dict()
-        self._checker = _parse_strdict(self._inpdict_in_doc(), True)
+        self._checker = _parse_strdict(self._inpdict_in_doc(), 'checker')
         self._phony = ['_checker', '_input_dict'] + self.__dict__.keys()
 
+        fstdval = _parse_strdict(self._inpdict_in_doc(), 'standardize')
         # merge input keywords with the default keywords
         # input keywords are case insensitive
         all_mods = self._input_dict.keys()
@@ -179,7 +186,8 @@ class Input(object):
             for k,v in subdict.items():
                 if k.upper() in all_KEYS:
                     std_key = KEY2key[k.upper()]
-                    self._input_dict[std_mod][std_key] = v
+                    self._input_dict[std_mod][std_key] \
+                            = fstdval[std_mod][std_key](v)
                 else:
                     raise KeyError('key %s.%s is not found' % (mod, k))
 
@@ -219,6 +227,11 @@ class Input(object):
         doc = _find_between(self.__doc__, \
                             '    -----------------------', '    Examples')
         return '{' + doc + '}'
+
+    def _val_to_std(self, val):
+        if isinstance(val, str):
+            f
+        # the value of string is not case sensitive
 
     def _remove_phony(self):
         # Since the input keys have been merged to the class, remove the
@@ -333,17 +346,31 @@ def _find_between(s, start, end):
     return s[s0:s1]
 
 def _member(v, lst):
+    # if v is the member of lst (case insensitive), return v, other wise
+    # return False
+    def memberf(v, lst, test):
+        for m in lst:
+            if test(v, m):
+                return m # so the input value will become standard value
+        return False
     if isinstance(v, str):
-        return v.upper() in [i.upper() for i in lst \
-                             if isinstance(i, str)]
+        return memberf(v.upper(), [i for i in lst if isinstance(i, str)],
+                       lambda x,y: x == y.upper())
     else:
-        return v in lst
+        return memberf(v, lst, lambda x,y: x == y)
 
 def _parse_strdict(docdict, checker=False):
     '''parse the __doc__ of Input class'''
-    def stringType(s): return isinstance(s, str)
-    def intType(s): return isinstance(s, int)
-    if checker:
+    if checker == 'standardize':
+        # standardize the input values, let it be the one provided by allow
+        def value(default=None, allow=None, limits=None, **keywords):
+            def standardize(v):
+                if allow and not callable(allow):
+                    return _member(v, allow)
+                else:
+                    return v
+            return standardize
+    elif checker == 'checker':
         # require the function 'value' in the __doc__ to generate the function
         # which can check the sanity for each key
         def value(default=None, allow=None, limits=None, **keywords):
@@ -361,6 +388,10 @@ def _parse_strdict(docdict, checker=False):
     else:
         def value(default=None, **keywords):
             return default
+
+    def stringType(s): return isinstance(s, str)
+    def intType(s): return isinstance(s, int)
+
     dic = eval(docdict)
     return dic
 
