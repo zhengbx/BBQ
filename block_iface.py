@@ -108,7 +108,7 @@ def get_block_result(orbitaltxt, nsites, nelec = -1, UHFB = False, p = False):
   else:
     configfile.append("nelec %d\nspin 0\nhf_occ integral" % nelec)
 
-  configfile.append(block_schedule(param_block["M"])
+  configfile.append(block_schedule(param_block["M"]))
 
   configfile.append("orbitals DMETDUMP")
   configfile.append("nonspinadapted\nonepdm")

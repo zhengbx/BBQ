@@ -317,9 +317,9 @@ if __name__ == '__main__':
    print "EmbFock is:\n", EmbFock
    EmbRdm = Diag1eHamiltonian(EmbFock, nElec, 1.0e-6) 
    print "EmbRdm is:\n", 2*EmbRdm
-   WriteFciInput("./FciInput", EmbFock, 2*nElec, U=0.0 )
-   Output = getoutput("../fci.20121221/fci FciInput --save-rdm1 rdm1 FciInput")
-   print Output
-   Rdm1 = Read1Rdm("rdm1")
-   print "Rdm1 is:\n", Rdm1
+   #WriteFciInput("./FciInput", EmbFock, 2*nElec, U=0.0 )
+   #Output = getoutput("../fci.20121221/fci FciInput --save-rdm1 rdm1 FciInput")
+   #print Output
+   #Rdm1 = Read1Rdm("rdm1")
+   #print "Rdm1 is:\n", Rdm1
 
