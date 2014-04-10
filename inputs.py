@@ -67,6 +67,9 @@ class Input(object):
             # RAND = random,
             # MAN = user specified,
             # None
+        'diis_thr': value(default=1e-2,limits=(0,0.1)),
+        'diis_start': value(default=2),
+        'diis_dim': value(default=4),
         'frag_group': [],
             # a group of frag-list, every frag-list is a list of atom id which
             # indicates the atoms in the fragment
