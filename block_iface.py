@@ -142,7 +142,7 @@ def get_block_result(orbitaltxt, nsites, nelec = -1, UHFB = False, p = False):
   if not UHFB:
     kappa = (kappa + kappa.T) / 2
   os.chdir(cwd)
-  #rmtree(path)
+  rmtree(path)
   return energy, rdm, kappa
 
 def block_schedule(M):
