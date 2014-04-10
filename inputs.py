@@ -186,8 +186,11 @@ class Input(object):
             for k,v in subdict.items():
                 if k.upper() in all_KEYS:
                     std_key = KEY2key[k.upper()]
-                    self._input_dict[std_mod][std_key] \
+                    if callable(fstdval[std_mod][std_key]):
+                        self._input_dict[std_mod][std_key] \
                             = fstdval[std_mod][std_key](v)
+                    else:
+                        self._input_dict[std_mod][std_key] = v
                 else:
                     raise KeyError('key %s.%s is not found' % (mod, k))
 
@@ -364,12 +367,10 @@ def _parse_strdict(docdict, checker=False):
     if checker == 'standardize':
         # standardize the input values, let it be the one provided by allow
         def value(default=None, allow=None, limits=None, **keywords):
-            def standardize(v):
-                if allow and not callable(allow):
-                    return _member(v, allow)
-                else:
-                    return v
-            return standardize
+            if allow and not callable(allow):
+                return lambda v: _member(v, allow)
+            else:
+                return lambda v: v
     elif checker == 'checker':
         # require the function 'value' in the __doc__ to generate the function
         # which can check the sanity for each key
