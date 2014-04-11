@@ -75,26 +75,26 @@ class FDiisContext:
 
         ContinueIfStarted = True
         if ( dot(conj(R),R) < 1e-30 ): # <- otherwise divide by zero in the B scaling.
-           Skip = True; ContinueIfStarted = False
+            Skip = True; ContinueIfStarted = False
         if (Skip is not None and Skip and (self.nDim == 0 or not ContinueIfStarted)):
-           # about the last one: this means 'continue with diis if you
-           # ever began with it'. might be required if iterations happen to
-           # go in the wrong direction.
-           self.NotApplied = True
-           if (O_ is not None): return T_, R_, O_, 1.0
-           else:               return T_, R_, 1.0
+            # about the last one: this means 'continue with diis if you
+            # ever began with it'. might be required if iterations happen to
+            # go in the wrong direction.
+            self.NotApplied = True
+            if (O_ is not None): return T_, R_, O_, 1.0
+            else:               return T_, R_, 1.0
         self.NotApplied = False
 
         def PrintVec(s,T):
-           print "!x DIIS: %-10s = %s ..." % (s, " ".join(["%12.6f" % o for o in T[:10]]))
+            print "!x DIIS: %-10s = %s ..." % (s, " ".join(["%12.6f" % o for o in T[:10]]))
         if self.DbgPrint:
-           PrintVec("Input T", T)
-           PrintVec("Input R", R)
-           print "History:"
-           for i in range(self.nDim):
-              PrintVec("Amps[%i]" % i, self.Amps[:,i])
-           for i in range(self.nDim):
-              PrintVec("Errs[%i]" % i, self.Errs[:,i])
+            PrintVec("Input T", T)
+            PrintVec("Input R", R)
+            print "History:"
+            for i in range(self.nDim):
+                PrintVec("Amps[%i]" % i, self.Amps[:,i])
+            for i in range(self.nDim):
+                PrintVec("Errs[%i]" % i, self.Errs[:,i])
 
         O = None
         if ( O_ is not None ):
@@ -183,8 +183,8 @@ class FDiisContext:
 
 
         if self.DbgPrint:
-           PrintVec("Output T", Tnew)
-           PrintVec("Output R", Rnew)
+            PrintVec("Output T", Tnew)
+            PrintVec("Output R", Rnew)
 
         if (O is not None):
             return Tnew.reshape(T_.shape), Rnew.reshape(R_.shape), Onew.reshape(O_.shape), (abs(c1[-1])*fScale)**.5
