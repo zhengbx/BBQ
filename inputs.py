@@ -79,6 +79,9 @@ class Input(object):
             # RAND = random,
             # MAN = user specified,
             # None
+        'Vcor': None,
+            # initial guess for dmet potential
+            # only used when 'init_guess' keyword is set to 'MAN'
         'diis_thr': value(default=1e-2,limits=(0,0.1)),
         'diis_start': value(default=2),
         'diis_dim': value(default=4),
@@ -90,6 +93,7 @@ class Input(object):
         'basidx_group': [],
             # a group of list, the list contains the id of additional basis
             # functions for the fragment
+        'OrbType': value(default='RHF', allow=('RHF', 'UHF'))
     },
     'FITTING': {
         'global_fit_dm': value(default=1, allow=(1,2,3,4)),

@@ -90,22 +90,23 @@ def main(inputdict):
    DiisStart = Inp.DMET.diis_start
    DiisDim = Inp.DMET.diis_dim
 
-   TYPE = NormalDmet
+   #FIXME nelec should come from lattice instance
+   TYPE = NormalDmet(Inp.DMET.OrbType, 10, 10, 0)
 
    MfdHam = Lattice.get_h0()
-   #FIXME: MfdHam += initguess
 
    FSCoreHam = Lattice.get_h0()
 
    Fragments = Lattice.supercell.fragments
 
    dc = FDiisContext(DiisDim)
+   VcorLarge = TYPE.GuessVcor(Inp.DMET, Lattice.supercell)
 
-   if 'vcor' in StartingGuess:
-       VcorLarge = 1.*StartingGuess['vcor']
-   else:
-       #replace with data from GEOM
-       VcorLarge = np.zeros_like(MfdHam[0,:,:])
+   #if 'vcor' in StartingGuess:
+   #    VcorLarge = 1.*StartingGuess['vcor']
+   #else:
+   #    #replace with data from GEOM
+   #    VcorLarge = np.zeros_like(MfdHam[0,:,:])
 
 
    for iMacroIt in range(DmetMaxIt):

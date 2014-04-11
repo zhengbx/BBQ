@@ -89,6 +89,7 @@ class FLattice(object):
         self.Ham = Ham
   
     def get_h0(self, kspace = False):
+        # FIXME take into account UHF case
         if kspace:
             if self.h0_kspace is None:
                 self.h0_kspace = self.FFTtoK(self.get_h0())

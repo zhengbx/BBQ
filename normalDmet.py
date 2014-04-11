@@ -143,7 +143,28 @@ class NormalDmet(object):
       Cleanup(BasePath)
       return FHlResults(Energy, EpTrace, nElec, Rdm1, Cmd, Output)
 
+   def GuessVcor(self, dmet_inp, sc, U = 0., shift = 0.):
+     # U could be hubbard U, in other cases, it's the upperlimit of Vcor entries
+     # for some cases, though, U doesn't appear
+     norbs = sc.nsites
+     if dmet_inp.OrbType == "UHF":
+       norbs *= 2
+     if dmet_inp.init_guess is None:
+         Vcor = np.zeros((norbs, norbs))
+     elif dmet_inp.init_guess == 'MAN' and dmet_inp.Vcor is not None:
+        Vcor = dmet_inp.Vcor
+     elif dmet_inp.init_guess == "RAND":
+        Vcor = np.random.rand(norbs, norbs) * U/2
+        Vcor += Vcor.T
+     elif dmet_inp.init_guess == 'AF' and dmet_inp.OrbType == "UHF":
+        print "Warning: Automatic assignment of AF order may not be physical"
+        Vcor_diag = np.array(norbs)
+        Vcor_diag[::4] = U
+        Vcor_diag[3::4] = U
+        Vcor += np.diag(Vcor_diag)
 
+     Vcor += np.eye(norbs) * shift
+     return Vcor
 
 if __name__ == '__main__':
     nElec = 10
