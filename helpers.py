@@ -22,13 +22,13 @@ import scipy.optimize
 
 
 def PrintHeading(s, isize):
-   """print a subdivision marker between program subsections.
-   isize == 0: very bold, isize == 1: very very bold."""
-   N = 62
-   if ( isize == 0 ):
-      print (N/2) * "_ " + "\n\n %s\n" % s
-   else:
-      print N * "_" + "\n\n %s\n" % s + (N/2) * "_ " + "\n\n"
+    """print a subdivision marker between program subsections.
+    isize == 0: very bold, isize == 1: very very bold."""
+    N = 62
+    if ( isize == 0 ):
+        print (N/2) * "_ " + "\n\n %s\n" % s
+    else:
+        print N * "_" + "\n\n %s\n" % s + (N/2) * "_ " + "\n\n"
 
 #def PrintMatrix(Text, M):
    #import settings as g
@@ -49,50 +49,50 @@ def PrintHeading(s, isize):
       #assert(0)
 
 def MakeSmh(S):
-   """calculate S^{-1/2}."""
-   ew,ev = eigh(-S); ew *= -1
-   if ( ew[-1] < 1e-8 ):
-      print ew
-      raise Exception("S^{-1/2} ill-conditioned. Smallest eigenvalue: %8.2e" % ew[-1])
-   evx = ev * (ew**-.25)
-   return dot(evx, evx.T)
+    """calculate S^{-1/2}."""
+    ew,ev = eigh(-S); ew *= -1
+    if ( ew[-1] < 1e-8 ):
+        print ew
+        raise Exception("S^{-1/2} ill-conditioned. Smallest eigenvalue: %8.2e" % ew[-1])
+    evx = ev * (ew**-.25)
+    return dot(evx, evx.T)
 
 def mdot(*args):
-   """chained matrix product."""
-   r = args[0]
-   for a in args[1:]:
-      r = dot(r,a)
-   return r
+    """chained matrix product."""
+    r = args[0]
+    for a in args[1:]:
+        r = dot(r,a)
+    return r
 
 def dot2(X,Y):
-   assert(X.shape == Y.shape)
-   return dot(X.flatten(), Y.flatten())
+    assert(X.shape == Y.shape)
+    return dot(X.flatten(), Y.flatten())
 
 def ReadFile(FileName):
-   File = open(FileName, "r")
-   Text = File.read()
-   File.close()
-   return Text
+    File = open(FileName, "r")
+    Text = File.read()
+    File.close()
+    return Text
 
 def WriteFile(FileName, Text):
-   File = open(FileName, "w")
-   File.write(Text)
-   File.close()
+    File = open(FileName, "w")
+    File.write(Text)
+    File.close()
 
 def Read1Rdm(FileName):
-   Text = ReadFile(FileName)
-   Lines = Text.splitlines()
-   nRows,x,nCols = Lines[0].split()[-3:]
-   nRows = int(nRows)
-   nCols = int(nCols)
-   Numbers = map(float,(" ".join(Lines[1:nRows+1])).split())
-   return array(Numbers).reshape(nRows,nCols)
+    Text = ReadFile(FileName)
+    Lines = Text.splitlines()
+    nRows,x,nCols = Lines[0].split()[-3:]
+    nRows = int(nRows)
+    nCols = int(nCols)
+    Numbers = map(float,(" ".join(Lines[1:nRows+1])).split())
+    return array(Numbers).reshape(nRows,nCols)
 
 def is_square(h):
     return len(h[0,:]) == len(h[:,0])
 
 def is_hermitian(X):
-   return np.allclose(X - conj(X.T), 0.0)
+    return np.allclose(X - conj(X.T), 0.0)
 
 def to_square(mat, n = None):
     if ( n is None ):
@@ -121,20 +121,20 @@ def to_triangle(mat):
 def InvertPermutation(P):
    IP = len(P) * [0]
    for (i,p) in enumerate(P):
-      IP[p] = i
+       IP[p] = i
    if type(P) is np.ndarray:
-      return array(IP)
+       return array(IP)
    else:
-      return IP
+       return IP
 
 IsSquare = is_square
 ToSquare = to_square
 ToTriangle = to_triangle
 
 def ElementNameDummy():
-   ElementNames = "H He Li Be B C N O F Ne Na Mg Al Si P S Cl Ar K Ca Sc Ti V Cr Mn Fe Co Ni Cu Zn Ga Ge As Se Br Kr Rb Sr Y Zr Nb Mo Tc Ru Rh Pd Ag Cd In Sn Sb Te I Xe Cs Ba La Ce Pr Nd Pm Sm Eu Gd Tb Dy Ho Er Tm Yb Lu Hf Ta W Re Os Ir Pt Au Hg Tl Pb Bi Po At Rn".split()
-   ElementNumbers = dict([(o,i+1) for (i,o) in enumerate(ElementNames)])
-   return ElementNames, ElementNumbers
+    ElementNames = "H He Li Be B C N O F Ne Na Mg Al Si P S Cl Ar K Ca Sc Ti V Cr Mn Fe Co Ni Cu Zn Ga Ge As Se Br Kr Rb Sr Y Zr Nb Mo Tc Ru Rh Pd Ag Cd In Sn Sb Te I Xe Cs Ba La Ce Pr Nd Pm Sm Eu Gd Tb Dy Ho Er Tm Yb Lu Hf Ta W Re Os Ir Pt Au Hg Tl Pb Bi Po At Rn".split()
+    ElementNumbers = dict([(o,i+1) for (i,o) in enumerate(ElementNames)])
+    return ElementNames, ElementNumbers
 ElementNames, ElementNumbers = ElementNameDummy()
 
 def ExtractSpinComp(h,iComp, nSpinComp=2):
@@ -205,17 +205,17 @@ def resmin(fn, x0, Algo="Hard"):
                 if p: print "       |%3i  %.3e" % (it,Err)
                 break
             if Algo == "Hard" or it == 0:
-               g = MakeGradMatrix(x)
+                g = MakeGradMatrix(x)
             else:
-               # bfgs update
-               y = r - LastR
-               s = dx
-               gs = dot(g,s)
-               g += outer(y,y)/dot(y,s) - outer(gs,gs)/dot(gs,s)
+                # bfgs update
+                y = r - LastR
+                s = dx
+                gs = dot(g,s)
+                g += outer(y,y)/dot(y,s) - outer(gs,gs)/dot(gs,s)
 
             if Algo == "Perturbative":
-               (dx,fitresid,rank,sigma) = lstsq(g, r)
-               return -dx
+                (dx,fitresid,rank,sigma) = lstsq(g, r)
+                return -dx
 
             def GetDir():
                 #gsq = dot(transpose(g),g)
