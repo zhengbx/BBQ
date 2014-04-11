@@ -56,7 +56,7 @@ def main(inputdict):
    Inp = Input(inputdict)
    #Inp = Input({'DMET':{'max_iter':10},'MFD':{'scf_solver':'UHF'}})
 
-   Lattice = BuildLatticeFromInput(Inp.GEOMETRY)
+   Lattice = BuildLatticeFromInput(Inp.GEOMETRY, Inp.DMET.OrbType)
    HAM = Hamiltonian(Inp.HAMILTONIAN)
    TYPE = NormalDmet
 

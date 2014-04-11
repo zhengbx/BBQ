@@ -37,7 +37,7 @@ class FSuperCell(object):
             for i in range(len(unitcell.sites)):
                 self.sites.append(np.dot(np.array(p), unitcell.size)  + unitcell.sites[i])
                 self.names.append(unitcell.names[i])
-  
+
         self.fragments = None
         self.Vloc = None
         self.Delta = None
@@ -51,7 +51,7 @@ class FSuperCell(object):
         self.fragments = frag
 
 class FLattice(object):
-    def __init__(self, size, sc, bc):
+    def __init__(self, size, sc, bc, OrbType = "RHF"):
         self.supercell = sc
         self.dim = sc.dim
   
@@ -80,6 +80,7 @@ class FLattice(object):
                 self.sites.append(np.dot(np.array(p), sc.size)  + sc.sites[i])
                 self.names.append(sc.names[i])
      
+        self.OrbType = OrbType
         self.h0 = None
         self.h0_kspace = None
         self.neighbor1 = None
@@ -89,14 +90,21 @@ class FLattice(object):
         self.Ham = Ham
   
     def get_h0(self, kspace = False):
-        # FIXME take into account UHF case
         if kspace:
             if self.h0_kspace is None:
                 self.h0_kspace = self.FFTtoK(self.get_h0())
             return self.h0_kspace
         else:
             if self.h0 is None:
-                self.h0 = self.Ham.build_h0(self)
+                h0 = self.Ham.build_h0(self)
+                if self.OrbType == "UHF":
+                    scnsites = self.supercell.nsites
+                    self.h0 = np.zeros((self.nscells, scnsites*2, scnsites*2))
+                    for i in range(self.nscells):
+                        self.h0[i][::2, ::2] = h0[i]
+                        self.h0[i][1::2, 1::2] = h0[i]
+                else:
+                    self.h0 = h0
             return self.h0
   
     def FFTtoK(self, A):
@@ -167,7 +175,7 @@ class FLattice(object):
   
         return neighbor1, neighbor2
 
-def BuildLatticeFromInput(inp_geom):
+def BuildLatticeFromInput(inp_geom, OrbType = "RHF"):
     unit = FUnitCell(inp_geom.UnitCell["Shape"],
                      inp_geom.UnitCell["Sites"])
     sc = FSuperCell(unit, np.array(inp_geom.ClusterSize))
@@ -178,7 +186,7 @@ def BuildLatticeFromInput(inp_geom):
 
     assert(np.allclose(np.array(inp_geom.LatticeSize) % np.array(inp_geom.ClusterSize), 0.))
     lattice = FLattice(np.array(inp_geom.LatticeSize)/np.array(inp_geom.ClusterSize),
-                       sc, inp_geom.BoundaryCondition)
+                       sc, inp_geom.BoundaryCondition, OrbType)
     return lattice
 
 if __name__ == "__main__":
