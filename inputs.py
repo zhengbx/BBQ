@@ -69,6 +69,9 @@ class Input(object):
         'BasisLibs': None,
     },
     'DMET': {
+        'OrbType': None,
+            # value(default='UHF', allow('UHF','RHF')), 
+            # wavefunction type
         'max_iter': value(default=20, allow=intType, limits=(1,100)),
             # maximum number of DMET self-consistency cycles
         'conv_threshold': value(default=1e-5, limits=(0,0.1)),
