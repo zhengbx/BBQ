@@ -33,6 +33,7 @@ class FHamHubbard(object):
         # it returns a tuple (Int2e, U)
         return (None, self.U)
 
+
 def Hamiltonian(inp_ham):
     if inp_ham.Type == "Hubbard":
         return FHamHubbard(inp_ham.U, t = 1.)

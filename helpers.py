@@ -22,77 +22,77 @@ import scipy.optimize
 
 
 def PrintHeading(s, isize):
-   """print a subdivision marker between program subsections.
-   isize == 0: very bold, isize == 1: very very bold."""
-   N = 62
-   if ( isize == 0 ):
-      print (N/2) * "_ " + "\n\n %s\n" % s
-   else:
-      print N * "_" + "\n\n %s\n" % s + (N/2) * "_ " + "\n\n"
+    """print a subdivision marker between program subsections.
+    isize == 0: very bold, isize == 1: very very bold."""
+    N = 62
+    if ( isize == 0 ):
+        print (N/2) * "_ " + "\n\n %s\n" % s
+    else:
+        print N * "_" + "\n\n %s\n" % s + (N/2) * "_ " + "\n\n"
 
 #def PrintMatrix(Text, M):
-   #import settings as g
-   #ESC = ExtractSpinComp
-   #if ( len(M.shape) == 1 ):
-      #if ( g.WF_TYPE == "RHF" ):
-         #print " %s:\n %s" % (Text,M)
-      #else:
-         ##print "%s:\nA%s\nB%s\n" % (Text, ESC(M,0), ESC(M,1))
-         #print " %s:\n C%s\n S%s\n" % (Text, ESC(M,0)+ESC(M,1), ESC(M,0)-ESC(M,1))
-   #elif ( len(M.shape) == 2 ):
-      #if ( g.WF_TYPE == "RHF" ):
-         #print "%s:\n%s" % (Text,M)
-      #else:
-         #print "%s [charge]:\n%s\n%s [spin]:\n%s\n"\
-            #% (Text, ESC(M,0)+ESC(M,1), Text, ESC(M,0)-ESC(M,1))
-   #else:
-      #assert(0)
+    #import settings as g
+    #ESC = ExtractSpinComp
+    #if ( len(M.shape) == 1 ):
+       #if ( g.WF_TYPE == "RHF" ):
+          #print " %s:\n %s" % (Text,M)
+       #else:
+          ##print "%s:\nA%s\nB%s\n" % (Text, ESC(M,0), ESC(M,1))
+          #print " %s:\n C%s\n S%s\n" % (Text, ESC(M,0)+ESC(M,1), ESC(M,0)-ESC(M,1))
+    #elif ( len(M.shape) == 2 ):
+       #if ( g.WF_TYPE == "RHF" ):
+          #print "%s:\n%s" % (Text,M)
+       #else:
+          #print "%s [charge]:\n%s\n%s [spin]:\n%s\n"\
+             #% (Text, ESC(M,0)+ESC(M,1), Text, ESC(M,0)-ESC(M,1))
+    #else:
+       #assert(0)
 
 def MakeSmh(S):
-   """calculate S^{-1/2}."""
-   ew,ev = eigh(-S); ew *= -1
-   if ( ew[-1] < 1e-8 ):
-      print ew
-      raise Exception("S^{-1/2} ill-conditioned. Smallest eigenvalue: %8.2e" % ew[-1])
-   evx = ev * (ew**-.25)
-   return dot(evx, evx.T)
+    """calculate S^{-1/2}."""
+    ew,ev = eigh(-S); ew *= -1
+    if ( ew[-1] < 1e-8 ):
+        print ew
+        raise Exception("S^{-1/2} ill-conditioned. Smallest eigenvalue: %8.2e" % ew[-1])
+    evx = ev * (ew**-.25)
+    return dot(evx, evx.T)
 
 def mdot(*args):
-   """chained matrix product."""
-   r = args[0]
-   for a in args[1:]:
-      r = dot(r,a)
-   return r
+    """chained matrix product."""
+    r = args[0]
+    for a in args[1:]:
+        r = dot(r,a)
+    return r
 
 def dot2(X,Y):
-   assert(X.shape == Y.shape)
-   return dot(X.flatten(), Y.flatten())
+    assert(X.shape == Y.shape)
+    return dot(X.flatten(), Y.flatten())
 
 def ReadFile(FileName):
-   File = open(FileName, "r")
-   Text = File.read()
-   File.close()
-   return Text
+    File = open(FileName, "r")
+    Text = File.read()
+    File.close()
+    return Text
 
 def WriteFile(FileName, Text):
-   File = open(FileName, "w")
-   File.write(Text)
-   File.close()
+    File = open(FileName, "w")
+    File.write(Text)
+    File.close()
 
 def Read1Rdm(FileName):
-   Text = ReadFile(FileName)
-   Lines = Text.splitlines()
-   nRows,x,nCols = Lines[0].split()[-3:]
-   nRows = int(nRows)
-   nCols = int(nCols)
-   Numbers = map(float,(" ".join(Lines[1:nRows+1])).split())
-   return array(Numbers).reshape(nRows,nCols)
+    Text = ReadFile(FileName)
+    Lines = Text.splitlines()
+    nRows,x,nCols = Lines[0].split()[-3:]
+    nRows = int(nRows)
+    nCols = int(nCols)
+    Numbers = map(float,(" ".join(Lines[1:nRows+1])).split())
+    return array(Numbers).reshape(nRows,nCols)
 
 def is_square(h):
     return len(h[0,:]) == len(h[:,0])
 
 def is_hermitian(X):
-   return np.allclose(X - conj(X.T), 0.0)
+    return np.allclose(X - conj(X.T), 0.0)
 
 def to_square(mat, n = None):
     if ( n is None ):
@@ -119,22 +119,22 @@ def to_triangle(mat):
     return r
 
 def InvertPermutation(P):
-   IP = len(P) * [0]
-   for (i,p) in enumerate(P):
-      IP[p] = i
-   if type(P) is np.ndarray:
-      return array(IP)
-   else:
-      return IP
+    IP = len(P) * [0]
+    for (i,p) in enumerate(P):
+        IP[p] = i
+    if type(P) is np.ndarray:
+        return array(IP)
+    else:
+        return IP
 
 IsSquare = is_square
 ToSquare = to_square
 ToTriangle = to_triangle
 
 def ElementNameDummy():
-   ElementNames = "H He Li Be B C N O F Ne Na Mg Al Si P S Cl Ar K Ca Sc Ti V Cr Mn Fe Co Ni Cu Zn Ga Ge As Se Br Kr Rb Sr Y Zr Nb Mo Tc Ru Rh Pd Ag Cd In Sn Sb Te I Xe Cs Ba La Ce Pr Nd Pm Sm Eu Gd Tb Dy Ho Er Tm Yb Lu Hf Ta W Re Os Ir Pt Au Hg Tl Pb Bi Po At Rn".split()
-   ElementNumbers = dict([(o,i+1) for (i,o) in enumerate(ElementNames)])
-   return ElementNames, ElementNumbers
+    ElementNames = "H He Li Be B C N O F Ne Na Mg Al Si P S Cl Ar K Ca Sc Ti V Cr Mn Fe Co Ni Cu Zn Ga Ge As Se Br Kr Rb Sr Y Zr Nb Mo Tc Ru Rh Pd Ag Cd In Sn Sb Te I Xe Cs Ba La Ce Pr Nd Pm Sm Eu Gd Tb Dy Ho Er Tm Yb Lu Hf Ta W Re Os Ir Pt Au Hg Tl Pb Bi Po At Rn".split()
+    ElementNumbers = dict([(o,i+1) for (i,o) in enumerate(ElementNames)])
+    return ElementNames, ElementNumbers
 ElementNames, ElementNumbers = ElementNameDummy()
 
 def ExtractSpinComp(h,iComp, nSpinComp=2):
@@ -146,11 +146,14 @@ def ExtractSpinComp(h,iComp, nSpinComp=2):
     if (len(h.shape) == 1):
         assert(h.shape[0] % 2 == 0)
         return h[iComp::nSpinComp]
-    assert(len(h.shape) == 2)
-    assert(h.shape[0] % 2 == 0 and h.shape[1] % 2 == 0)
-    assert(iComp < nSpinComp)
-    return h[iComp::2,iComp::2]
-
+    if len(h.shape) == 2:
+        assert(iComp < nSpinComp)
+        assert(h.shape[0] % 2 == 0 and h.shape[1] % 2 == 0)
+        return h[iComp::2,iComp::2]
+    if len(h.shape) == 3:
+        assert(iComp < nSpinComp)
+        return h[:, iComp::2,iComp::2]
+        
 def CombineSpinComps(hAlpha, hBeta, nSpinComp=2):
     if ( hAlpha is None ):
         return None
@@ -168,6 +171,17 @@ def CombineSpinComps(hAlpha, hBeta, nSpinComp=2):
         h = zeros(2*N,hAlpha.dtype)
         h[::2] = hAlpha
         h[1::2] = hBeta
+        return h
+    elif ( len(hAlpha.shape) == 3 ):
+        N,n,m = hAlpha.shape 
+        h = zeros((N,2*n,2*m),hAlpha.dtype)
+        h[:,::2,::2] = hAlpha
+        h[:,1::2,1::2] = hBeta
+        return h
+    elif ( len(hAlpha.shape) == 0 ):
+        h = np.zeros((2),hAlpha.dtype)
+        h[0] = hAlpha
+        h[1] = hBeta
         return h
     else:
         assert(0)
@@ -202,20 +216,20 @@ def resmin(fn, x0, Algo="Hard"):
                 #x,r,diis_c0 = Diis.Apply(x,r)
                 #r = fn(x)
             if ( Err < 1e-15 and it != 0 ):
-                if p: print "       |%3i  %.3e" % (it,Err)
+                if p: print "        |%3i  %.3e" % (it,Err)
                 break
             if Algo == "Hard" or it == 0:
-               g = MakeGradMatrix(x)
+                g = MakeGradMatrix(x)
             else:
-               # bfgs update
-               y = r - LastR
-               s = dx
-               gs = dot(g,s)
-               g += outer(y,y)/dot(y,s) - outer(gs,gs)/dot(gs,s)
+                # bfgs update
+                y = r - LastR
+                s = dx
+                gs = dot(g,s)
+                g += outer(y,y)/dot(y,s) - outer(gs,gs)/dot(gs,s)
 
             if Algo == "Perturbative":
-               (dx,fitresid,rank,sigma) = lstsq(g, r)
-               return -dx
+                (dx,fitresid,rank,sigma) = lstsq(g, r)
+                return -dx
 
             def GetDir():
                 #gsq = dot(transpose(g),g)
@@ -282,9 +296,9 @@ def resmin(fn, x0, Algo="Hard"):
                 g = g - outer(ndx,dot(ndx,g))
                 dx = GetDir()
                 step = FindStep()
-                print "           new direction:  step = %.3e" % step
+                print "            new direction:  step = %.3e" % step
 
-            if p: print "       |%3i  %.3e   %.3e  %+.2e  %s.." % (it,dot(r,r),norm(dx),step, x[:5])
+            if p: print "        |%3i  %.3e    %.3e  %+.2e  %s.." % (it,dot(r,r),norm(dx),step, x[:5])
 
             if ( abs(step)*norm(dx) < 1e-10 ):
                 # take the first local minimum
@@ -294,6 +308,6 @@ def resmin(fn, x0, Algo="Hard"):
             x -= dx
             LastR = r
             #x,r,diis_c0 = Diis.Apply(x,fn(x))
-        #if ( norm(r) > 1e-10 ):
-           #print "WARNING: resmin failed to converge. Final gradient: %8.2e" % norm(r)
+            #if ( norm(r) > 1e-10 ):
+            #print "WARNING: resmin failed to converge. Final gradient: %8.2e" % norm(r)
         return x
