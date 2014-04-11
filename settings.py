@@ -16,7 +16,9 @@
 
 #FciExecutable = "/home/cgk/dev/fci/fci"
 #FciExecutable = "/home/qiaoni/Documents/work/dev/dmet-hubbard/fci.20121221/fci"
-FciExecutable = '/home/sunqm/Software/src/QC/fci.20121221/fci'
+#FciExecutable = '/home/sunqm/Software/src/QC/fci.20121221/fci'
+FciExecutable = '/home/zhengbx/workspace/fci.20121221/fci'
+
 param_block = {
   "exec": "/home/boxiao/block/block.spin_adapted",
   "M": 400,
