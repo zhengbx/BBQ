@@ -74,10 +74,10 @@ class Input(object):
         'max_iter': value(default=20, allow=intType, limits=(1,100)),
             # maximum number of DMET self-consistency cycles
         'conv_threshold': value(default=1e-5, limits=(0,0.1)),
-        'init_guess_type': None,
-            # initial guess for dmet potential
+        'init_guess_type': value(default=None, allow=(None, 'AF', 'RAND', 'MAN')),
+            # initial guess for dmet potential 'BCS' is not needed if we define
+            # the function to generate initial guess in Type class
             # AF = antiferromagnetic,
-            # BCS,
             # RAND = random,
             # MAN = user specified,
             # None

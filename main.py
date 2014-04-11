@@ -18,40 +18,6 @@ from normalDmet import NormalDmet
 from geometry import BuildLatticeFromInput
 from ham import Hamiltonian
 
-def InitGuess(inp_ham, inp_dmet, Lattice):
-   inp_init = inp_dmet.init_guess
-   if inp_init == 'AF':
-      assert(inp_dmet.OrbType == 'UHF')
-      VcorInit = np.zeros(2*Lattice.supercell.nsites,np.float64)
-      bias = inp_ham.U / 2.        
-      for frag in Lattice.supercell.fragments:
-         for (index,site) in enumerate(frag.sites): 
-            if index % 2 == 0:
-               sign = 1
-            else:
-               sign = -1
-            VcorInit[site * 2] += sign * bias
-            VcorInit[site * 2 + 1] += - sign * bias  
-      return np.diag(VcorInit)
-
-   elif inp_init == None:
-      if inp_dmet.OrbType == 'UHF':
-         VcorInit = np.zeros(2*Lattice.supercell.unitcell.dim,np.float64)
-      elif inp_dmet.OrbType == 'RHF':   
-         VcorInit = np.zeros(Lattice.supercell.unitcell.dim,np.float64)
-      return np.diag(VcorInit)
-   elif inp_init == 'RAND':
-      if inp_dmet.OrbType == 'UHF':
-         VcorInit = np.random.random_sample((2*Lattice.supercell.unitcell.dim),)
-      elif inp_dmet.OrbType == 'RHF':   
-         VcorInit = np.random.random_sample((2*Lattice.supercell.unitcell.dim),)
-      return np.diag(VcorInit)
-   elif inp_init == 'BCS':
-      #FIXME
-      print "to be inserted"
-   else:
-      VcorInit = inp_init
-      return VcorInit
 
 def FitCorrelationPotential(Input, GEOM, TYPE, EmbMfdHam, nEmb, RdmHl):
    """fit a matrix nEmb x nEmb, referring to an operator connecting  
@@ -111,9 +77,6 @@ def main(inputdict):
    FSCoreHam = Lattice.get_h0()
 
    Fragments = Lattice.supercell.fragments
-   InitVcor = InitGuess(Inp.HAMILTONIAN, Inp.DMET, Lattice)
-
-   VcorLarge = 1.*InitVcor
   
    dc = FDiisContext(DiisDim)
    VcorLarge = TYPE.GuessVcor(Inp.DMET, Lattice.supercell)

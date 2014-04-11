@@ -149,23 +149,35 @@ class NormalDmet(object):
      norbs = sc.nsites
      if dmet_inp.OrbType == "UHF":
         norbs *= 2
+
      if dmet_inp.init_guess_type is None:
         Vcor = np.zeros((norbs, norbs))
+        Vcor += np.eye(norbs) * shift
      elif dmet_inp.init_guess_type == 'MAN' and dmet_inp.init_guess is not None:
         Vcor = dmet_inp.init_guess
      elif dmet_inp.init_guess_type == "RAND":
-        Vcor = np.random.rand(norbs, norbs) * U/2
-        Vcor += Vcor.T
+        sites_with_V = []
+        for frag in sc.fragments:
+           if frag.get_emb_method() is not None: # none means do not do HL calculation
+              sites_with_V += frag.sites.tolist()
+        if dmet_inp.OrbType == "UHF":
+           sites_with_V = [2*x for x in sites_with_V] + [2*x+1 for x in sites_with_V]
+        Vcor_small = np.random.rand(len(sites_with_V, sites_with_V)) * U/2
+        Vcor_small += Vcor_small.T
+        Vcor_small += np.eye(len(sites_with_V)) * shift
+        Vcor[sites_with_V][:, sites_with_V] = Vcor_small
+        return Vcor
      elif dmet_inp.init_guess_type == 'AF' and dmet_inp.OrbType == "UHF":
         print "Warning: Automatic assignment of AF order may not be physical"
+        assert(len(sc.fragments) == 1)
         Vcor_diag = np.array(norbs)
         Vcor_diag[::4] = U
         Vcor_diag[3::4] = U
         Vcor = np.diag(Vcor_diag)
+        Vcor += np.eye(norbs) * shift
      else:
        raise Exception("Unknown or Unsupported Guess Type")
 
-     Vcor += np.eye(norbs) * shift
      return Vcor
 
 if __name__ == '__main__':
