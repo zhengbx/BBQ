@@ -68,12 +68,15 @@ class NormalDmet(object):
             #print "nElec is:" , nElecFull, int(nElecFull+0.1)
 	    #raise SystemExit
          elif self.OrbType == "UHF":
+            print MfdHam.shape
             RdmA, MuA, GapA = Diag1eHamiltonian(ExtractSpinComp(MfdHam,0), self.MfdnElecA, self.MfdThrDeg) 
+            raise SystemExit
             RdmB, MuB, GapB = Diag1eHamiltonian(ExtractSpinComp(MfdHam,0), self.MfdnElecB, self.MfdThrDeg) 
             Rdm = CombineSpinComps(RdmA, RdmB)
             Mu = CombineSpinComps(MuA, MuB)
             Gap = CombineSpinComps(GapA, GapB)
       return FMfdResults(Rdm,Mu,Gap)
+
 
    def MakeEmbBasis(self,MfdRdm,ImpSites):
       if self.OrbType == "RHF":
@@ -84,12 +87,13 @@ class NormalDmet(object):
          EmbBasis = CombineSpinComps(EmbBasisA, EmbBasisB)
       return EmbBasis
 
-   def MakeEmbHam(self,MfdHam, MfdRdm, EmbBasis):
+   def MakeEmbHam(self,MfdHam, MfdRdm, HAM, EmbBasis):
       EmbFock = ToEmb(MfdHam,EmbBasis)
       EmbRdm = ToEmb(MfdRdm,EmbBasis)
+      #FIXME: need to change the 2el integrals here as well (for FCI input)
       #nElecFull = int(np.trace(MfdRdm))
       #print "nElec is:" , nElecFull
-      return EmbFock, EmbRdm
+      return EmbFock, EmbFock, EmbRdm
          
 
    def ImpSolver(self,EmbFock,EmbRdm,HlMethod,nSysTrace=None,Int2e_=None,U=None):

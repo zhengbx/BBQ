@@ -86,7 +86,9 @@ def DealGQNOrbitals(Ews, Orbs, nElec, ThrDeg):
       Rdm[gqn,:,:] = np.dot(C, np.conj(C.T))
    return Rdm, Mu, HlGap
 
+
 def MakeEmbeddingBasis(ImpSites, Rdm, ThrBathSvd):
+   Rdm = Rdm.reshape((Rdm.shape[0]*Rdm.shape[1],) + Rdm.shape[2:]) 
    if (type(ImpSites) is not np.ndarray):
       ImpSites = np.array(ImpSites, int)
    nImp = len(ImpSites)

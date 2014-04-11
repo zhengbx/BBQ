@@ -59,6 +59,7 @@ def main(inputdict):
     Lattice = BuildLatticeFromInput(Inp.GEOMETRY, Inp.WAVEFUNCTION.OrbType)
     HAM = Hamiltonian(Inp.HAMILTONIAN)
     WAVEFCT = Wavefct(Inp.WAVEFUNCTION, Lattice)
+    HamBlockDiag = True
     TYPE = NormalDmet(WAVEFCT.OrbType, WAVEFCT.nElec, WAVEFCT.nElecA, WAVEFCT.nElecB, WAVEFCT.Ms)
 
     #print Lattice.UnitCell print function not implemented yet
@@ -82,14 +83,14 @@ def main(inputdict):
 
     for iMacroIt in range(DmetMaxIt):
         MfdHam_aug = MfdHam + VcorLarge
-        MfdResult = TYPE.RunMfd(MfdHam_aug)
+        MfdResult = TYPE.RunMfd(MfdHam_aug, HamBlockDiag)
         Rdm = MfdResult.Rdm
         FragmentResults = []
         FragmentPotentials = []
         for (iFragment,Fragment) in enumerate(Fragments):
             if Fragment.get_emb_method() is not None:
                 EmbBasis = TYPE.MakeEmbBasis(Rdm, Fragment.get_sites())
-                EmbHam, EmbMfdHam = TYPE.MakeEmbHam(EmbBasis, MfdHam, HAM, Fragment.get_sites())
+                EmbHam, EmbMfdHam, EmbRdm = TYPE.MakeEmbHam(EmbBasis, MfdHam, HAM, Fragment.get_sites())
                 HlResults = TYPE.ImpSolver(EmbHam, EmbMfdHam, Fragment.get_emb_method())
                 FragmentResults.append((Fragment, HlResults))
                 vloc = FitCorrelationPotential(Inp, GEOM, TYPE, EmbMfdHam, TYPE.MakeEmbBasis.nEmb, RdmHl)
@@ -154,7 +155,7 @@ if __name__ == '__main__':
     initguess = np.diag([1.,0.,0.,1.,0.,1.,0.,1.])
     inpdic = {
         'HAMILTONIAN': {'Type': 'Hubbard', 'U': 3},
-        'WAVEFUNCTION': {'OrbType': 'UHF', 'filling': 0.5, 'Ms': 4},
+        'WAVEFUNCTION': {'OrbType': 'UHF', 'filling': 0.5, 'Ms': 0},
         'GEOMETRY':
         {'UnitCell': {'Sites':sites, 'Shape':shape},
          'ClusterSize': np.array([2, 2]),
