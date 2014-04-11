@@ -43,6 +43,36 @@ class NormalDmet(object):
         elif self.OrbType == "ROHF":
             raise Exception("restricted open shell hartree fock haven't implemented yet")
 
+    def RunMfd(self, MfdHam, HamBlockDiag=False):
+        if HamBlockDiag == True :
+             if self.OrbType == "RHF":
+                 Ews, Orbs = Diag1eGQNHamiltonian(MfdHam)  
+                 Rdm, Mu, Gap = DealGQNOrbitals(Ews, Orbs, self.MfdnElecA, self.MfdThrDeg)  
+                 Rdm = 2*Rdm
+             elif self.OrbType == "UHF":
+                 EwsA, OrbsA = Diag1eGQNHamiltonian(ExtractSpinComp(MfdHam,0))  
+                 RdmA, MuA, GapA = DealGQNOrbitals(EwsA, OrbsA, self.MfdnElecA, self.MfdThrDeg)  
+                 EwsB, OrbsB = Diag1eGQNHamiltonian(ExtractSpinComp(MfdHam,1))  
+                 RdmB, MuB, GapB = DealGQNOrbitals(EwsB, OrbsB, self.MfdnElecB, self.MfdThrDeg)  
+                 Rdm = CombineSpinComps(RdmA, RdmB)
+                 Mu = CombineSpinComps(MuA, MuB)
+                 Gap = CombineSpinComps(GapA, GapB)
+        else :
+             if self.OrbType == "RHF":
+                 Rdm, Mu, Gap = Diag1eHamiltonian(MfdHam, self.MfdnElec, self.MfdThrDeg) 
+                 nElecFull = np.trace(Rdm)
+                 #print "nElec is:" , nElecFull, int(nElecFull+0.1)
+                 #Rdm = 2*Rdm
+                 #nElecFull = np.trace(Rdm)
+                 #print "nElec is:" , nElecFull, int(nElecFull+0.1)
+        #raise SystemExit
+             elif self.OrbType == "UHF":
+                 RdmA, MuA, GapA = Diag1eHamiltonian(ExtractSpinComp(MfdHam,0), self.MfdnElecA, self.MfdThrDeg) 
+                 RdmB, MuB, GapB = Diag1eHamiltonian(ExtractSpinComp(MfdHam,0), self.MfdnElecB, self.MfdThrDeg) 
+                 Rdm = CombineSpinComps(RdmA, RdmB)
+                 Mu = CombineSpinComps(MuA, MuB)
+                 Gap = CombineSpinComps(GapA, GapB)
+        return FMfdResults(Rdm,Mu,Gap)
 
     def RunMfd(self, MfdHam, HamBlockDiag=False):
         if HamBlockDiag == True :
@@ -66,7 +96,7 @@ class NormalDmet(object):
                 #Rdm = 2*Rdm
                 #nElecFull = np.trace(Rdm)
                 #print "nElec is:" , nElecFull, int(nElecFull+0.1)
- 	              #raise SystemExit
+                #raise SystemExit
             elif self.OrbType == "UHF":
                 RdmA, MuA, GapA = Diag1eHamiltonian(ExtractSpinComp(MfdHam,0), self.MfdnElecA, self.MfdThrDeg) 
                 RdmB, MuB, GapB = Diag1eHamiltonian(ExtractSpinComp(MfdHam,0), self.MfdnElecB, self.MfdThrDeg) 
@@ -84,12 +114,13 @@ class NormalDmet(object):
             EmbBasis = CombineSpinComps(EmbBasisA, EmbBasisB)
         return EmbBasis
  
-    def MakeEmbHam(self,MfdHam, MfdRdm, EmbBasis):
+    def MakeEmbHam(self,MfdHam, MfdRdm, HAM, EmbBasis):
         EmbFock = ToEmb(MfdHam,EmbBasis)
         EmbRdm = ToEmb(MfdRdm,EmbBasis)
+        #FIXME: need to change the 2el integrals here as well (for FCI input)
         #nElecFull = int(np.trace(MfdRdm))
         #print "nElec is:" , nElecFull
-        return EmbFock, EmbRdm
+        return EmbFock, EmbFock, EmbRdm
           
  
     def ImpSolver0(self,EmbFock,EmbRdm,HlMethod,n2eOrb,nSysTrace=None,Int2e_=None,U=None):
