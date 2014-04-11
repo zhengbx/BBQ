@@ -34,6 +34,32 @@ class FHamHubbard(object):
         return (None, self.U)
 
 
+class FHamQC(object):
+    """
+    Quantum chemistry Hamiltonian
+    """
+    def __init__(self, nsites = None, Int1e = None, Int2e = None, nelecA = None, nelecB = None, DumpFile = None):
+        if self.nsites is not None:
+            self.nsites = nsites
+            self.Int1e = Int1e
+            self.Int2e = Int2e
+            self.nelecA = nelecA
+            self.nelecB = nelecB
+        elif DumpFile is not None:
+            self.nsites, self.Int1e, self.Int2e, self.nelecA, self.nelecB = ReadFromDump(DumpFile)
+        else:
+            raise Exception("Unable to initialize Hamiltonian class")
+    
+    def build_h0(self, lattice):
+        assert(lattice.bc == 0 and lattice.nscells == 1 and lattice.supercell.nsites == self.nsites)
+        H0 = np.zeros((1, self.nsites, self.nsites))
+        H0[0] = self.Int1e
+
+        return H0
+
+    def get_Int2e(self):
+        return (self.Int2e, None)
+
 def Hamiltonian(inp_ham):
     if inp_ham.Type == "Hubbard":
         return FHamHubbard(inp_ham.U, t = 1.)
