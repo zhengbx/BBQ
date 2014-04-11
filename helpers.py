@@ -186,6 +186,15 @@ def CombineSpinComps(hAlpha, hBeta, nSpinComp=2):
     else:
         assert(0)
 
+def FindRequiredTs(Op):
+    # make a list of Ts we need to consider in the transformation.
+    # if Op[iT,:,:] is zero, then we can skip the T.
+    iTs = []
+    for iT in range(self.nUnitCells):
+        if not np.allclose(Op[iT,:,:], 0.):
+            iTs.append(iT)
+    return np.array(iTs)
+
 
 def resmin(fn, x0, Algo="Hard"):
     from numpy.linalg import solve, lstsq
