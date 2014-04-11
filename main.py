@@ -8,7 +8,6 @@ import sys
 
 import numpy as np
 import itertools as it
-import ast
 
 from helpers import mdot, ExtractSpinComp, CombineSpinComps
 from vcor_fit import FitVcorComponent
@@ -18,27 +17,41 @@ from inputs import Input
 from normalDmet import NormalDmet
 from geometry import BuildLatticeFromInput
 from ham import Hamiltonian
-# .. work in progress
-#from hamiltonian import Hamiltonian, Geometry
-#from lattice_model import *
 
-# setup hamiltonian                                                                                
-# provides: CoreH, CoreEnergy
+def InitGuess(inp_ham, inp_dmet, Lattice):
+   inp_init = inp_dmet.init_guess
+   if inp_init == 'AF':
+      assert(inp_dmet.OrbType == 'UHF')
+      VcorInit = np.zeros(2*Lattice.supercell.nsites,np.float64)
+      bias = inp_ham.U / 2.        
+      for frag in Lattice.supercell.fragments:
+         for (index,site) in enumerate(frag.sites): 
+            if index % 2 == 0:
+               sign = 1
+            else:
+               sign = -1
+            VcorInit[site * 2] += sign * bias
+            VcorInit[site * 2 + 1] += - sign * bias  
+      return np.diag(VcorInit)
 
-# setup geometry
-# provides: _EnergyFactor, Fragments, nImp,OrbType, ORB_OCC, nElec
-# Fragment needs: Sites, Factor, Replicas, FullSystem, Method (class from Geralds code) 
-
-# setup type classes
-# provides: 
-#    - MakeMfdHam: MfdHam 
-#    - RunMfd: MfdResult (MeanFieldEnergy, MfdHam, CoreEnergy (class from Geralds code))
-#    - MakeEmbedBasis: nEmb
-#    - MakeEmbedHam:
-#    - ImpSolver: Results(=FragmentResults)
-
-# setup init guess (StartingGuess) 
-
+   elif inp_init == None:
+      if inp_dmet.OrbType == 'UHF':
+         VcorInit = np.zeros(2*Lattice.supercell.unitcell.dim,np.float64)
+      elif inp_dmet.OrbType == 'RHF':   
+         VcorInit = np.zeros(Lattice.supercell.unitcell.dim,np.float64)
+      return np.diag(VcorInit)
+   elif inp_init == 'RAND':
+      if inp_dmet.OrbType == 'UHF':
+         VcorInit = np.random.random_sample((2*Lattice.supercell.unitcell.dim),)
+      elif inp_dmet.OrbType == 'RHF':   
+         VcorInit = np.random.random_sample((2*Lattice.supercell.unitcell.dim),)
+      return np.diag(VcorInit)
+   elif inp_init == 'BCS':
+      #FIXME
+      print "to be inserted"
+   else:
+      VcorInit = inp_init
+      return VcorInit
 
 def FitCorrelationPotential(Input, GEOM, TYPE, EmbMfdHam, nEmb, RdmHl):
    """fit a matrix nEmb x nEmb, referring to an operator connecting  
@@ -78,10 +91,10 @@ def main(inputdict):
    #Inp = Input({'DMET':{'max_iter':10},'MFD':{'scf_solver':'UHF'}})
 
    Lattice = BuildLatticeFromInput(Inp.GEOMETRY)
-   
-   #print Lattice.UnitCell print function not implemented yet
    HAM = Hamiltonian(Inp.HAMILTONIAN)
+   TYPE = NormalDmet
 
+    #print Lattice.UnitCell print function not implemented yet
    Lattice.set_Hamiltonian(HAM)
 
    DmetMaxIt = Inp.DMET.max_iter
@@ -98,16 +111,12 @@ def main(inputdict):
    FSCoreHam = Lattice.get_h0()
 
    Fragments = Lattice.supercell.fragments
+   InitVcor = InitGuess(Inp.HAMILTONIAN, Inp.DMET, Lattice)
 
+   VcorLarge = 1.*InitVcor
+  
    dc = FDiisContext(DiisDim)
    VcorLarge = TYPE.GuessVcor(Inp.DMET, Lattice.supercell)
-
-   #if 'vcor' in StartingGuess:
-   #    VcorLarge = 1.*StartingGuess['vcor']
-   #else:
-   #    #replace with data from GEOM
-   #    VcorLarge = np.zeros_like(MfdHam[0,:,:])
-
 
    for iMacroIt in range(DmetMaxIt):
        MfdHam_aug = MfdHam + VcorLarge
@@ -180,15 +189,18 @@ if __name__ == '__main__':
         [1., 0.],
         [0., 1.],
     ])
+    initguess = np.diag([1.,0.,0.,1.,0.,1.,0.,1.])
     inpdic = {
-        'HAMILTONIAN': {'Type': 'Hubbard', 'U': 3,},
+        'HAMILTONIAN': {'Type': 'Hubbard', 'U': 3},
         'GEOMETRY':
         {'UnitCell': {'Sites':sites, 'Shape':shape},
          'ClusterSize': np.array([2, 2]),
          'LatticeSize': np.array([8, 8]),
          'Fragments': [{"Sites":range(4), "ImpSolver":'Fci',
                         "Fitting":'FullRdm'},],
-         'BoundaryCondition': 'pbc',}
+         'BoundaryCondition': 'pbc',},
+       'DMET':
+       {'init_guess_type': 'MAN', 'init_guess': initguess, 'OrbType': 'UHF'}
     }
     main(inpdic)
 
