@@ -2,6 +2,7 @@ import numpy as np
 import scipy.linalg as la
 import settings as dmetSet
 from os import remove, path
+from helpers import WriteFile, ReadFile
 
 def Diag1eHamiltonian(Fock, nElec, ThrDeg, LastOrb = None, NumVirts = None, fOrbOcc = None):  
     nOrb = Fock.shape[0]
@@ -136,11 +137,6 @@ def ToEmb(M,EmbBasis):
     return np.dot(EmbBasis.T, np.dot(M,EmbBasis))
 
 from textwrap import dedent
-
-def WriteFile(FileName, Text):
-    File = open(FileName, "w")
-    File.write(Text)
-    File.close()
 
 def WriteDumpFile(FileName, Emb1e, n2eOrb, nElec, Ms2=0, U=None, Int2e=None, Uhf=False):
     if Uhf :
@@ -509,12 +505,6 @@ def block_schedule(M):
 
     lines.append("maxiter 30")
     return "\n".join(lines)
-
-def ReadFile(FileName):
-    File = open(FileName, "r")
-    Text = File.read()
-    File.close()
-    return Text
 
 def Read1Rdm(FileName):
     Text = ReadFile(FileName)
