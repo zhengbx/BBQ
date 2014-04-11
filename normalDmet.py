@@ -22,26 +22,26 @@ class FHlResults(object):
         self.cmd = cmd
         self.output = output
 
-class NormalDmet(object):          
+class NormalDmet(object):
     def __init__(self, OrbType, nElec=None, nElecA=None, nElecB=None, Ms2=None, ThrDeg=1.0e-8, ThrBathSvd = 1.0e-8):
         self.MfdThrDeg = ThrDeg
         self.MebThrBathSvd = ThrBathSvd
         self.OrbType = OrbType
         if nElecA is not None :
-             self.MfdnElecA = nElecA
-             self.MfdnElecB = nElecB
-             self.MfdnElec = self.MfdnElecA + self.MfdnElecB
-             self.MfdMs2 = self.MfdnElecA - self.MfdnElecB
+            self.MfdnElecA = nElecA
+            self.MfdnElecB = nElecB
+            self.MfdnElec = self.MfdnElecA + self.MfdnElecB
+            self.MfdMs2 = self.MfdnElecA - self.MfdnElecB
         elif self.OrbType == "UHF" :
-             raise Exception("number of alpha and beta electron must be specified")
+            raise Exception("number of alpha and beta electron must be specified")
         elif self.OrbType == "RHF" :
-             assert (nElec%2==0)
-             self.MfdnElec = nElec
-             self.MfdMs2 = 0
-             self.MfdnElecA = nElec/2
-             self.MfdnElecB = nElec/2
+            assert (nElec%2==0)
+            self.MfdnElec = nElec
+            self.MfdMs2 = 0
+            self.MfdnElecA = nElec/2
+            self.MfdnElecB = nElec/2
         elif self.OrbType == "ROHF":
-             raise Exception("restricted open shell hartree fock haven't implemented yet")
+            raise Exception("restricted open shell hartree fock haven't implemented yet")
 
     def RunMfd(self, MfdHam, HamBlockDiag=False):
         if HamBlockDiag == True :
@@ -105,6 +105,15 @@ class NormalDmet(object):
                 Gap = CombineSpinComps(GapA, GapB)
         return FMfdResults(Rdm,Mu,Gap)
 
+    def MakeEmbBasis(self,MfdRdm,ImpSites):
+        if self.OrbType == "RHF":
+            EmbBasis = MakeEmbeddingBasis(ImpSites, MfdRdm, self.MebThrBathSvd)
+        elif self.OrbType == "UHF":
+            EmbBasisA = MakeEmbeddingBasis(ImpSites[::2]/2, ExtractSpinComp(MfdRdm,0), self.MebThrBathSvd)
+            EmbBasisB = MakeEmbeddingBasis(ImpSites[1::2]/2, ExtractSpinComp(MfdRdm,1), self.MebThrBathSvd)
+            EmbBasis = CombineSpinComps(EmbBasisA, EmbBasisB)
+        return EmbBasis
+ 
     def MakeEmbHam(self,MfdHam, MfdRdm, HAM, EmbBasis):
         EmbFock = ToEmb(MfdHam,EmbBasis)
         EmbRdm = ToEmb(MfdRdm,EmbBasis)
@@ -112,12 +121,13 @@ class NormalDmet(object):
         #nElecFull = int(np.trace(MfdRdm))
         #print "nElec is:" , nElecFull
         return EmbFock, EmbFock, EmbRdm
-
+          
+ 
     def ImpSolver0(self,EmbFock,EmbRdm,HlMethod,n2eOrb,nSysTrace=None,Int2e_=None,U=None):
         HlExecutable = {"Fci": dmetSet.FciExecutable,
                         "Dmrg": dmetSet.DmrgExecutable,
                         "CC": dmetSet.CCExecutable
-                        }
+                       }
         BasePath = mkdtemp(prefix=HlMethod, dir=dmetSet.TmpDir)
         HlInputName = path.join(BasePath, HlMethod+"INP")
         FileNameRdm = path.join(BasePath, HlMethod+"1RDM")
@@ -130,7 +140,7 @@ class NormalDmet(object):
             if self.OrbType == "RHF":
                 WriteDumpFile(HlInputName, EmbFock, nElec, n2eOrb, U=U )
             elif self.OrbType == "UHF":
-               WriteDumpFile(HlInputName, EmbFock, nElec, n2eOrb, U=U, Uhf=True, Ms2 = Ms2 )
+                WriteDumpFile(HlInputName, EmbFock, nElec, n2eOrb, U=U, Uhf=True, Ms2 = Ms2 )
         else :
             assert(Int2e_ is not None)
             HlOption = OptionForHlMethod(HlMethod,FileNameRdm,BasePath,self.OrbType,nSys=EmbFock.shape[0], nSysTrace = nSysTrace)
@@ -141,7 +151,7 @@ class NormalDmet(object):
                 Int2e = (Int2e_[0::2,0::2,0::2,0::2],
                          Int2e_[1::2,1::2,1::2,1::2],
                          Int2e_[0::2,0::2,1::2,1::2])
-            WriteDumpFile(HlInputName, EmbFock, nElec, n2eOrb, Int2e=Int2e, Uhf=True, Ms2 = Ms2)
+                WriteDumpFile(HlInputName, EmbFock, nElec, n2eOrb, Int2e=Int2e, Uhf=True, Ms2 = Ms2)
         BaseCmd = HlExecutable[HlMethod]
         BaseCmd += HlOption
         Cmd = "%s '%s'" % (BaseCmd, HlInputName)
@@ -171,13 +181,13 @@ class NormalDmet(object):
         HlInputName = path.join(BasePath, HlMethod+"INP")
         nElec = int(np.trace(EmbRdm)+0.005)
         if self.OrbType == "UHF":
-           Ms2_ = int(np.trace(EmbRdm[::2,::2])+0.005)-int(np.trace(EmbRdm[1::2,1::2])+0.005)
+            Ms2_ = int(np.trace(EmbRdm[::2,::2])+0.005)-int(np.trace(EmbRdm[1::2,1::2])+0.005)
         if U_ is not None :
-           assert(U_ is not None)
-           if self.OrbType == "RHF":
-               WriteDumpFile(HlInputName, EmbFock, nElec, n2eOrb, U=U_ )
-           elif self.OrbType == "UHF":
-               WriteDumpFile(HlInputName, EmbFock, nElec, n2eOrb, U=U_, Uhf=True, Ms2 = Ms2_ )
+            assert(U_ is not None)
+            if self.OrbType == "RHF":
+                WriteDumpFile(HlInputName, EmbFock, nElec, n2eOrb, U=U_ )
+            elif self.OrbType == "UHF":
+                WriteDumpFile(HlInputName, EmbFock, nElec, n2eOrb, U=U_, Uhf=True, Ms2 = Ms2_ )
         else :
             assert(Int2e_ is not None)
             if self.OrbType == "RHF":
@@ -186,7 +196,7 @@ class NormalDmet(object):
                 Int2e = (Int2e_[0::2,0::2,0::2,0::2],
                          Int2e_[1::2,1::2,1::2,1::2],
                          Int2e_[0::2,0::2,1::2,1::2])
-            WriteDumpFile(HlInputName, EmbFock, nElec, n2eOrb, Int2e=Int2e_, Uhf=True, Ms2 = Ms2_)
+                WriteDumpFile(HlInputName, EmbFock, nElec, n2eOrb, Int2e=Int2e_, Uhf=True, Ms2 = Ms2_)
         if HlMethod == "Fci":
             Energy, EpTrace, Rdm1, Cmd, Output = FindFciSolution(BasePath,np.shape(EmbFock)[0],n2eOrb)
         elif HlMethod == "Dmrg":
@@ -194,10 +204,45 @@ class NormalDmet(object):
             Energy, EpTrace, Rdm1, Cmd, Output = FindDmrgSolution(BasePath,dmrgConf)
         else :
             raise Exception("You have to implement the interface for other solver")
-        
+       
         return FHlResults(Energy, EpTrace, nElec, Rdm1, Cmd, Output)
-          
+         
+    def GuessVcor(self, OrbType, dmet_inp, sc, U = 0., shift = 0.):
+        # U could be hubbard U, in other cases, it's the upperlimit of Vcor entries
+        # for some cases, though, U doesn't appear
+        norbs = sc.nsites
+        if OrbType == "UHF":
+            norbs *= 2
 
+        if dmet_inp.init_guess_type is None:
+            Vcor = np.zeros((norbs, norbs))
+            Vcor += np.eye(norbs) * shift
+        elif dmet_inp.init_guess_type == 'MAN' and dmet_inp.init_guess is not None:
+            Vcor = dmet_inp.init_guess
+        elif dmet_inp.init_guess_type == "RAND":
+            sites_with_V = []
+            for frag in sc.fragments:
+                if frag.get_emb_method() is not None: # none means do not do HL calculation
+                    sites_with_V += frag.sites.tolist()
+            if OrbType == "UHF":
+                sites_with_V = [2*x for x in sites_with_V] + [2*x+1 for x in sites_with_V]
+            Vcor_small = np.random.rand(len(sites_with_V, sites_with_V)) * U/2
+            Vcor_small += Vcor_small.T
+            Vcor_small += np.eye(len(sites_with_V)) * shift
+            Vcor[sites_with_V][:, sites_with_V] = Vcor_small
+            return Vcor
+        elif dmet_inp.init_guess_type == 'AF' and OrbType == "UHF":
+            print "Warning: Automatic assignment of AF order may not be physical"
+            assert(len(sc.fragments) == 1)
+            Vcor_diag = np.array(norbs)
+            Vcor_diag[::4] = U
+            Vcor_diag[3::4] = U
+            Vcor = np.diag(Vcor_diag)
+            Vcor += np.eye(norbs) * shift
+        else:
+            raise Exception("Unknown or Unsupported Guess Type")
+
+        return Vcor
 
 if __name__ == '__main__':
     nElec = 10
