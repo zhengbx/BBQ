@@ -37,7 +37,7 @@ class FSuperCell(object):
             for i in range(len(unitcell.sites)):
                 self.sites.append(np.dot(np.array(p), unitcell.size)  + unitcell.sites[i])
                 self.names.append(unitcell.names[i])
-  
+
         self.fragments = None
         self.Vloc = None
         self.Delta = None
@@ -51,7 +51,7 @@ class FSuperCell(object):
         self.fragments = frag
 
 class FLattice(object):
-    def __init__(self, size, sc, bc):
+    def __init__(self, size, sc, bc, OrbType = "RHF"):
         self.supercell = sc
         self.dim = sc.dim
   
@@ -80,6 +80,7 @@ class FLattice(object):
                 self.sites.append(np.dot(np.array(p), sc.size)  + sc.sites[i])
                 self.names.append(sc.names[i])
      
+        self.OrbType = OrbType
         self.h0 = None
         self.h0_kspace = None
         self.neighbor1 = None
@@ -95,7 +96,15 @@ class FLattice(object):
             return self.h0_kspace
         else:
             if self.h0 is None:
-                self.h0 = self.Ham.build_h0(self)
+                h0 = self.Ham.build_h0(self)
+                if self.OrbType == "UHF":
+                    scnsites = self.supercell.nsites
+                    self.h0 = np.zeros((self.nscells, scnsites*2, scnsites*2))
+                    for i in range(self.nscells):
+                        self.h0[i][::2, ::2] = h0[i]
+                        self.h0[i][1::2, 1::2] = h0[i]
+                else:
+                    self.h0 = h0
             return self.h0
   
     def FFTtoK(self, A):
@@ -167,24 +176,24 @@ class FLattice(object):
         return neighbor1, neighbor2
 
 class Wavefct(object):
-    def __init__(self, inp_wavefct, Lattice):
-        self.Orbtype = inp_wavefct.Orbtype
-        if inp_wavefct.filling is not None:
-            self.fill = inp_wavefct.filling 
-            self.nElec = int((2.*Lattice.nsites*self.fill))
-        else:
-            assert(inp_ham.type == 'qc')
-            # get value from hamiltonian class
-        if inp_wavefct.charge is not None:
-            self.charge = inp_wavefct.charge 
-        self.Ms = inp_wavefct.Ms
-        if (self.nElec + self.Ms) % 2 == 0:
-            self.nElecA = int(self.nElec/2. + self.Ms)
-        else: 
-            self.nElecA = int((self.nElec + 1.)/2. + self.Ms)
-        self.nElecB = self.nElec - self.nElecA
+   def __init__(self, inp_wavefct, Lattice):
+       self.OrbType = inp_wavefct.OrbType
+       if inp_wavefct.filling is not None:
+           self.fill = inp_wavefct.filling 
+           self.nElec = int((2.*Lattice.nsites*self.fill))
+       else:
+           assert(inp_ham.Type == 'qc')
+           # get value from hamiltonian class
+       if inp_wavefct.charge is not None:
+           self.charge = inp_wavefct.charge 
+       self.Ms = inp_wavefct.Ms
+       if (self.nElec + self.Ms) % 2 == 0:
+           self.nElecA = int(self.nElec/2. + self.Ms)
+       else: 
+           self.nElecA = int((self.nElec + 1.)/2. + self.Ms)
+       self.nElecB = self.nElec - self.nElecA
 
-def BuildLatticeFromInput(inp_geom):
+def BuildLatticeFromInput(inp_geom, OrbType = "RHF"):
     unit = FUnitCell(inp_geom.UnitCell["Shape"],
                      inp_geom.UnitCell["Sites"])
     sc = FSuperCell(unit, np.array(inp_geom.ClusterSize))
@@ -195,7 +204,7 @@ def BuildLatticeFromInput(inp_geom):
 
     assert(np.allclose(np.array(inp_geom.LatticeSize) % np.array(inp_geom.ClusterSize), 0.))
     lattice = FLattice(np.array(inp_geom.LatticeSize)/np.array(inp_geom.ClusterSize),
-                       sc, inp_geom.BoundaryCondition)
+                       sc, inp_geom.BoundaryCondition, OrbType)
     return lattice
 
 if __name__ == "__main__":

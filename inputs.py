@@ -42,8 +42,8 @@ class Input(object):
             # phonon energy
     },
     'WAVEFUNCTION': {
-        'Orbtype': None, 
-            # spin restriction: value(default='UHF', allow('UHF','RHF')),
+        'OrbType': None, 
+            # spin restriction: value(default='UHF', allow('UHF','RHF', 'ROHF')),
         'Ms': value(default=0),
             # spin quantum number: absolute value of S_z
         'charge': value(default=0),
@@ -79,13 +79,16 @@ class Input(object):
         'max_iter': value(default=20, allow=intType, limits=(1,100)),
             # maximum number of DMET self-consistency cycles
         'conv_threshold': value(default=1e-5, limits=(0,0.1)),
-        'init_guess': None,
-            # initial guess for dmet potential
+        'init_guess_type': value(default=None, allow=(None, 'AF', 'RAND', 'MAN')),
+            # initial guess for dmet potential 'BCS' is not needed if we define
+            # the function to generate initial guess in Type class
             # AF = antiferromagnetic,
-            # BCS,
             # RAND = random,
             # MAN = user specified,
             # None
+        'init_guess': None,
+            # initial guess for dmet potential
+            # only used when 'init_guess_type' keyword is set to 'MAN'
         'diis_thr': value(default=1e-2,limits=(0,0.1)),
         'diis_start': value(default=2),
         'diis_dim': value(default=4),
