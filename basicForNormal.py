@@ -1,5 +1,7 @@
 import numpy as np
 import scipy.linalg as la
+import settings as dmetSet
+from os import remove, path
 
 def Diag1eHamiltonian(Fock, nElec, ThrDeg, LastOrb = None, NumVirts = None, fOrbOcc = None):  
    nOrb = Fock.shape[0]
@@ -138,8 +140,11 @@ def WriteFile(FileName, Text):
    File.write(Text)
    File.close()
 
-def WriteFciInput(FileName, Emb1e, nElec, Ms2=0, U=0, Int2e=None, Uhf=False, nSys=1):
-   nOrb = Emb1e.shape[0]
+def WriteDumpFile(FileName, Emb1e, n2eOrb, nElec, Ms2=0, U=None, Int2e=None, Uhf=False):
+   if Uhf :
+      nOrb = Emb1e.shape[0]/2
+   else :
+      nOrb = Emb1e.shape[0]
    Text = dedent("""
      &FCI NORB=%i,NELEC=%i,MS2=%i,
       ORBSYM=%s
@@ -149,7 +154,7 @@ def WriteFciInput(FileName, Emb1e, nElec, Ms2=0, U=0, Int2e=None, Uhf=False, nSy
    Text = Text % (nOrb, nElec, Ms2, nOrb*"1,",["","\n   IUHF=1,"][Uhf])
    Text = "\n".join(" " + o for o in Text.splitlines()) + "\n"
    IntLines = []
-   assert(nSys <= nOrb)
+   assert(n2eOrb <= nOrb)
    LineFmt = "  %16.12f %i %i %i %i"
    def AppendSeparatorLine():
       # in UHF case, such lines separate between the different spin cases.
@@ -160,9 +165,12 @@ def WriteFciInput(FileName, Emb1e, nElec, Ms2=0, U=0, Int2e=None, Uhf=False, nSy
             tij = Emb1e[iOrb,jOrb]
             IntLines.append(LineFmt % (tij, iOrb+1,jOrb+1, 0, 0) )
    def Append2eOp(Int2e, U, iSymAB):
-      for iOrb in range(nOrb):
-         IntLines.append(LineFmt % (U, iOrb+1,iOrb+1,iOrb+1,iOrb+1) )
-      if Int2e is not None:
+      #for iOrb in range(nImp):
+      #   IntLines.append(LineFmt % (U, iOrb+1,iOrb+1,iOrb+1,iOrb+1) )
+      if U is not None:
+         for iOrb in range(n2eOrb):
+            IntLines.append(LineFmt % (U, iOrb+1,iOrb+1,iOrb+1,iOrb+1) )
+      elif Int2e is not None:
          assert(nOrb == Int2e.shape[0] == Int2e.shape[1] == Int2e.shape[2] == Int2e.shape[3])
          for i in range(nOrb):
             for j in range(nOrb):
@@ -202,7 +210,7 @@ def WriteFciInput(FileName, Emb1e, nElec, Ms2=0, U=0, Int2e=None, Uhf=False, nSy
    #print Text
    WriteFile(FileName, Text)
 
-def OptionForHlMethod(HlMethod, FileNameRdm1,BasePath,IntType,nSys,  U=0,  nSysTrace=None,Int2e_=None,MakeRdm2=False,MakeRdm2S=False,MakeFock=False,MaxIt=2048,DiagBasis=None):
+def OptionForHlMethod(HlMethod, FileNameRdm1,BasePath,IntType, nSys,  U=0,  nSysTrace=None,Int2e_=None,MakeRdm2=False,MakeRdm2S=False,MakeFock=False,MaxIt=2048,DiagBasis=None):
    if HlMethod == "Fci":    
       SubDim=16
       pSpaceDim = 200 # hm... doesn't play well toegether with spinproj.
@@ -260,6 +268,246 @@ def OptionForHlMethod(HlMethod, FileNameRdm1,BasePath,IntType,nSys,  U=0,  nSysT
       raise Exception("You have to implement the options for other HlMethods")
    return BaseCmd
 
+def FindFciSolution(BasePath,nSys_,nSysTrace=None,CiMethod="FCI", IntType="RHF",
+        U=0,Int2e_=None):
+   FileNameInp = path.join(BasePath, r"FciINP")
+   FileNameRdm = path.join(BasePath, r"FCIRdm")
+
+   SubDim=16
+   pSpaceDim = 200 # hm... doesn't play well toegether with spinproj.
+   if ( U > 4. ):
+      pSpaceDim = 400
+   nSys = nSys_
+
+   if ( nSys < 8 ):
+      pSpaceDim = 100
+   if ( nSys >= 12 ):
+      pSpaceDim = 1500
+   ThrVar = 1e-12
+   #pSpaceDim = 0
+   Executable = dmetSet.FciExecutable
+   if dmetSet.param_fci["DiagBasis"] is None:
+      if ( U > 6. or (nSys > 4 and IntType != "RHF")):
+         DiagBasis = "Input"
+      else:
+         DiagBasis = "CoreH"
+           # ^- this can use the (barely working...) HubU optimization of fci.
+   else:
+      if type(DiagBasis) is not str:
+         # it's an array. write it to disk
+         # (used for ability to perform limited CI in canonical HF basis)
+         BasisLines = []
+         #assert(allclose(dot(DiagBasis.T,DiagBasis) - eye(DiagBasis.shape[0]),0.))
+         def MakeAsymOpLines(Op):
+            assert(allclose(dot(Op.T,Op) - eye(Op.shape[0]),0.))
+            Lines = []
+            for j in range(Op.shape[1]):
+               for i in range(Op.shape[0]):
+                  Lines.append("%6i %6i %24.15e" % (1+i,1+j,Op[i,j]))
+            return Lines
+      FileNameBasis = path.join(BasePath, r"1DIAG_BASIS")
+      if IntType == "RHF":
+         WriteFile(FileNameBasis, "\n".join(MakeAsymOpLines(DiagBasis)) + "\n")
+      else :
+         WriteFile(FileNameBasis+"_A", "\n".join(MakeAsymOpLines(DiagBasis[ ::2, ::2])) + "\n")
+         WriteFile(FileNameBasis+"_B", "\n".join(MakeAsymOpLines(DiagBasis[1::2,1::2])) + "\n")
+         DiagBasis = "'!%s'" % FileNameBasis
+   
+   if dmetSet.param_fci["runOPENMP"] :
+      BaseCmd = "OMP_NUM_THREADS=12 %d" % param_fci["nThreads"]
+      BaseCmd += "%s --subspace-dimension=%s --basis=%s --method='%s' --pspace=%i "\
+         "--thr-var=%e --diis-block-size=%i --max-it=%i"\
+         % (Executable, SubDim,DiagBasis,CiMethod,pSpaceDim,ThrVar,5000e3/2/SubDim,dmetSet.param_fci["MaxIt"])
+   else : 
+      BaseCmd = "%s --subspace-dimension=%s --basis=%s --method='%s' --pspace=%i "\
+         "--thr-var=%e --diis-block-size=%i --max-it=%i"\
+         % (Executable, SubDim,DiagBasis,CiMethod,pSpaceDim,ThrVar,5000e3/2/SubDim,dmetSet.param_fci["MaxIt"])
+   BaseCmd += " --save-rdm1='%s'" % FileNameRdm
+   if dmetSet.param_fci["MakeFock"]:
+       FileNameFock = path.join(BasePath, r"FOCK")
+       BaseCmd += " --save-fock='%s'" % FileNameFock
+   else:
+       FileNameFock = None
+   #BaseCmd += " --fci-vec='%s'" %FileNameFciVec
+   if ( dmetSet.param_fci["MakeRdm2"] ):
+      FileNameRdm2 = path.join(BasePath, r"2RDM")
+      BaseCmd += " --save-rdm2='%s'" % FileNameRdm2
+   if ( dmetSet.param_fci["MakeRdm2S"] ):
+      FileNameRdm2s = path.join(BasePath, r"2RDM-S")
+      BaseCmd += " --save-rdm2s='%s'" % FileNameRdm2s
+
+   #BaseCmd += " --thr-print-c=0."
+
+   if ( nSysTrace is not None ):
+      BaseCmd = BaseCmd.replace("--thr-var", "--ptrace=%i --thr-var" % nSysTrace)
+
+   def FindOutput(Output,s):
+      Lines= Output.splitlines()
+      i = len(Lines) - 1
+      while ("!%s STATE 1 %s" % (CiMethod,s)) not in Lines[i]:
+         i -= 1
+      E = float(Lines[i].split()[-1])
+      return E
+   try:
+      Cmd = "%s '%s'" % (BaseCmd, FileNameInp)
+      print "!%s" % Cmd
+      Output = getoutput(Cmd)
+      print Output
+      try:
+         E = FindOutput(Output,"ENERGY")
+         EpTrace = None
+         if nSysTrace is not None:
+            EpTrace = FindOutput(Output,"pTraceSys")
+      except IndexError,e:
+         print "Calculation failed: Output = ", Output
+         print "Command was:"
+         print "!%s" % Cmd
+
+      # read 1-RDM.
+      if ( IntType == "RHF" ):
+         Rdm1 = Read1Rdm(FileNameRdm)
+      else:
+         Rdm1a = Read1Rdm(FileNameRdm + ".A")
+         Rdm1b = Read1Rdm(FileNameRdm + ".B")
+         Rdm1 = CombineSpinComps(Rdm1a, Rdm1b)
+      print "fci Rdm1 is:\n", Rdm1
+      if ( FileNameFock is not None ):
+         FciFock = Read1Rdm(FileNameFock)
+      #nOrb = h1.shape[0]
+      if ( dmetSet.param_fci["MakeRdm2"] ):
+         Rdm2 = Read1Rdm(FileNameRdm2).reshape((nOrb,nOrb,nOrb,nOrb))
+      if ( dmetSet.param_fci["MakeRdm2S"] ):
+         Rdm2S = Read1Rdm(FileNameRdm2s).reshape((nOrb,nOrb,nOrb,nOrb))
+         #print Output
+   except:
+      Cleanup(BasePath)
+      raise
+   return  E, EpTrace, Rdm1, Cmd, Output
+   #return FHlResults(Energy, EpTrace, nElec, Rdm1, Cmd, Output)
+
+def readrdm(file, UHFB):
+  with open(file, "r") as f:
+    lines = f.readlines()
+  
+  nsites = int(lines[0])
+  rdm = np.zeros((nsites, nsites))
+  
+  for line in lines[1:]:
+    tokens = line.split(" ")
+    rdm[int(tokens[0]), int(tokens[1])] = float(tokens[2])
+  
+  if UHFB:
+    return [rdm[::2, ::2], rdm[1::2, 1::2]]
+  else:
+    return rdm
+
+def FindDmrgSolution(BasePath, DmrgConfFile, IntType="RHF",p=True):
+   #cmd = ["mpiexec -np %d" % nproc]
+   #if param_block["bind"]:
+   #  cmd.append("--bind-to-socket")
+   #cmd.append(param_block["exec"])
+   #cmd.append("dmrg.conf")
+   #cmd = " ".join(cmd)
+   # call block
+   FileNameInp = path.join(BasePath, r"DmrgINP")
+   DmrgOutFile = path.join(BasePath, r"DmrgOUT")
+   if dmetSet.param_block["runMPI"] :
+      BaseCmd = "mpiexec -np %d" %dmetSet.param_block["nproc"]
+      if dmetSet.param_block["bind"]:
+         BaseCmd += " --bind-to-socket" 
+      BaseCmd += dmetSet.DmrgExecutable
+   else : 
+      BaseCmd = dmetSet.DmrgExecutable
+   Cmd = "%s %s > %s " %(BaseCmd, DmrgConfFile, DmrgOutFile)
+   print Cmd
+   Output = getoutput(Cmd)
+   Output = getoutput("grep \"Sweep Energy\" %s"%(DmrgOutFile))
+   if p:
+      print Output
+      print
+   # read energy
+   #file_e = open("dmrg.e", "rb")
+   file_e = open(path.join(BasePath,r"dmrg.e"),"rb")
+   energy = struct.unpack('d', file_e.read(8))[0]
+   EpTrace = 0.0
+   # read rdm and kappa
+   #if IntType == "RHF":
+   Rdm1 = readrdm("spatial_onepdm.0.0", False)
+   #if IntType == "UHF":
+   #   rdm = readrdm("onepdm.0.0.txt", True)
+   #else:
+   #   rdm = readrdm("spatial_onepdm.0.0.txt", False) / 2
+   #   kappa = readrdm("spatial_pairmat.0.0.txt", False)
+   #if not UHFB:
+   #   kappa = (kappa + kappa.T) / 2
+   #os.chdir(cwd)
+   #cwd = os.getcwd()
+   #os.chdir(path)
+   Cleanup(BasePath)
+   return  E, EpTrace, Rdm1, Cmd, Output
+
+def WriteDmrgConfigFile(BasePath, nsites,nelec, Ms2=0):
+  configfile = []
+  blockM = dmetSet.param_block["M"]
+  if nelec == -1:
+    configfile.append("nelec %d\nspin 0\nhf_occ integral" % (nsites*2))
+    configfile.append("bogoliubov" % (nsites*2))
+  else:
+    #configfile.append("nelec %d\nspin %d\n hf_occ integral" % (nelec, Ms2))
+    configfile.append("nelec %d\nspin %d" %(nelec, Ms2))
+
+  configfile.append(block_schedule(blockM))
+
+  configfile.append("orbitals "+BasePath+"/DmrgINP")
+  configfile.append("prefix  " +BasePath)
+  #configfile.append("nonspinadapted\nonepdm")
+  configfile.append("onepdm")
+  #configfile.append("noreorder")
+  configfile.append("outputlevel -1")
+  configtxt = "\n".join(configfile) + "\n"
+  configFilename = BasePath+"/dmrg.conf" 
+  WriteFile(configFilename, configtxt)
+  return configFilename
+  
+
+def block_schedule(M):
+  lines = ["schedule"]
+  if M == 200:
+    lines.append("0 50  1e-5 1e-4")
+    lines.append("4 100 1e-5 1e-4")
+    lines.append("8 200 1e-6 1e-5")
+    lines.append("10 200 1e-7 0")
+    lines.append("end")
+    lines.append("")
+    lines.append("twodot_to_onedot 12")
+    lines.append("sweep_tol 1e-6")
+  elif M == 300:
+    lines.append("0 50  1e-5 1e-4")
+    lines.append("4 100 1e-5 1e-4")
+    lines.append("8 250 2e-6 1e-5")
+    lines.append("12 300 1e-6 1e-5")
+    lines.append("14 300 1e-7 0")
+    lines.append("end")
+    lines.append("")
+    lines.append("twodot_to_onedot 16")
+    lines.append("sweep_tol 1e-6")
+  elif M == 400:
+    lines.append("0 50  1e-5 1e-4")
+    lines.append("4 100 1e-5 1e-4")
+    lines.append("8 250 2e-6 1e-5")
+    lines.append("12 400 1e-6 1e-6")
+    lines.append("14 400 1e-7 0")
+    lines.append("end")
+    lines.append("")
+    lines.append("twodot_to_onedot 16")
+    lines.append("sweep_tol 1e-6")
+  else:
+    print "Block schedule not specified!"
+    assert()
+
+  lines.append("maxiter 30")
+  return "\n".join(lines)
+
 def ReadFile(FileName):
    File = open(FileName, "r")
    Text = File.read()
@@ -299,13 +547,14 @@ if __name__ == '__main__':
    #   Fock[i,:,:] = np.random.random((nOrb,nOrb))
    #   Fock[i,:,:] = Fock[i,:,:] + Fock[i,:,:].T
    #Ews, Orbs = Diag1eGQNHamiltonian(Fock)  
-   #DealGQNOrbitals(Ews, Orbs, nOcc, 1.0e-3)  
+   #Rdm, Mu, Gap =  DealGQNOrbitals(Ews, Orbs, nOcc, 1.0e-3)  
+   #print Rdm.shape
 
    Fock = np.random.random((nOrb,nOrb))
    Fock = Fock + Fock.T
    Rdm, Mu, Gap = Diag1eHamiltonian(Fock, nOcc, 1.0e-6) 
-   #ew,ev = la.eigh(Fock)
-   #Rdm = np.dot(ev[:,:nOcc],ev[:,:nOcc].T)
+   ew,ev = la.eigh(Fock)
+   Rdm = np.dot(ev[:,:nOcc],ev[:,:nOcc].T)
    ImpSites = [0,3]
    ThrBathSvd = 1.0e-8
    EmbBasis = MakeEmbeddingBasis(ImpSites, Rdm, ThrBathSvd)
