@@ -9,7 +9,7 @@ class FHamHubbard(object):
 
   def build_h0(self, lattice):
     bc = lattice.bc
-    if bc == 1 or bc == -1: # PBC or APBC, then Hamiltonian is reduced
+    if bc in [-1, 0, 1]: # no need to distinguish pbc and obc, because obc is sure to have only one supercell
       nsc = lattice.nscells
       ncellsites = lattice.supercell.nsites
       H0 = np.zeros((nsc, ncellsites, ncellsites))
@@ -18,12 +18,6 @@ class FHamHubbard(object):
         H0[nn[1] / ncellsites, nn[0], nn[1] % ncellsites] = self.t
       for nn in pairs[1]:
         H0[nn[1] / ncellsites, nn[0], nn[1] % ncellsites] = self.t * bc
-    elif bc == 0:
-      nsites = lattice.nsites
-      H0 = np.zeros((nsites, nsites)) # only have real space representation
-      pairs = lattice.get_neighbor()
-      for nn in pairs[0]:
-        H0[nn] = self.t
     else:
       raise Exception("Unsupported boundary condition")
     

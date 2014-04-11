@@ -49,7 +49,14 @@ class FLattice(object):
   def __init__(self, size, sc, bc):
     self.supercell = sc
     self.dim = sc.dim
+
+    self.scsize = np.array(size)
+    self.size = self.scsize * sc.size
+    self.nscells = np.product(self.scsize)
+    self.nsites = sc.nsites * self.nscells
+
     if bc == "open":
+      assert(self.nscells == 1)
       self.bc = 0
     elif bc == "pbc":
       self.bc = 1
@@ -58,11 +65,6 @@ class FLattice(object):
       print "Warning: currently not fully supported"
     else:
       self.bc = bc
-
-    self.scsize = np.array(size)
-    self.size = self.scsize * sc.size
-    self.nscells = np.product(self.scsize)
-    self.nsites = sc.nsites * self.nscells
 
     self.sites = []
     self.names = []
