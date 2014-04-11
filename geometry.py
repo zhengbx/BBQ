@@ -166,6 +166,24 @@ class FLattice(object):
   
         return neighbor1, neighbor2
 
+class Wavefct(object):
+    def __init__(self, inp_wavefct, Lattice):
+        self.Orbtype = inp_wavefct.Orbtype
+        if inp_wavefct.filling is not None:
+            self.fill = inp_wavefct.filling 
+            self.nElec = int((2.*Lattice.nsites*self.fill))
+        else:
+            assert(inp_ham.type == 'qc')
+            # get value from hamiltonian class
+        if inp_wavefct.charge is not None:
+            self.charge = inp_wavefct.charge 
+        self.Ms = inp_wavefct.Ms
+        if (self.nElec + self.Ms) % 2 == 0:
+            self.nElecA = int(self.nElec/2. + self.Ms)
+        else: 
+            self.nElecA = int((self.nElec + 1.)/2. + self.Ms)
+        self.nElecB = self.nElec - self.nElecA
+
 def BuildLatticeFromInput(inp_geom):
     unit = FUnitCell(inp_geom.UnitCell["Shape"],
                      inp_geom.UnitCell["Sites"])
