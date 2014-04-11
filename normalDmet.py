@@ -92,7 +92,7 @@ class NormalDmet(object):
       return EmbFock, EmbRdm
          
 
-   def ImpSolver(self,EmbFock,EmbRdm,HlMethod,nSysTrace=None,Int2e_=None,U=None):
+   def ImpSolver0(self,EmbFock,EmbRdm,HlMethod,n2eOrb,nSysTrace=None,Int2e_=None,U=None):
       HlExecutable = {"Fci": dmetSet.FciExecutable,
                       "Dmrg": dmetSet.DmrgExecutable,
                       "CC": dmetSet.CCExecutable
@@ -101,24 +101,26 @@ class NormalDmet(object):
       HlInputName = path.join(BasePath, HlMethod+"INP")
       FileNameRdm = path.join(BasePath, HlMethod+"1RDM")
       nElec = int(np.trace(EmbRdm)+0.005)
+      if self.OrbType == "UHF":
+         Ms2 = int(np.trace(EmbRdm[::2,::2])+0.005)-int(np.trace(EmbRdm[1::2,1::2])+0.005)
       print "nElec is:" , nElec
       if U is not None :
          HlOption = OptionForHlMethod(HlMethod,FileNameRdm,BasePath,self.OrbType,nSys=EmbFock.shape[0], U=U, nSysTrace = nSysTrace)
          if self.OrbType == "RHF":
-            WriteFciInput(HlInputName, EmbFock, nElec, U=U )
+            WriteDumpFile(HlInputName, EmbFock, nElec, n2eOrb, U=U )
          elif self.OrbType == "UHF":
-            WriteFciInput(HlInputName, EmbFock, nElec, U=U, Uhf=True )
+            WriteDumpFile(HlInputName, EmbFock, nElec, n2eOrb, U=U, Uhf=True, Ms2 = Ms2 )
       else :
          assert(Int2e_ is not None)
          HlOption = OptionForHlMethod(HlMethod,FileNameRdm,BasePath,self.OrbType,nSys=EmbFock.shape[0], nSysTrace = nSysTrace)
          if self.OrbType == "RHF":
             Int2e = Int2e_
-            WriteFciInput(HlInputName, EmbFock, nElec, Int2e=Int2e )
+            WriteDumpFile(HlInputName, EmbFock, nElec, n2eOrb, Int2e=Int2e )
          elif self.OrbType == "UHF":
             Int2e = (Int2e_[0::2,0::2,0::2,0::2],
                      Int2e_[1::2,1::2,1::2,1::2],
                      Int2e_[0::2,0::2,1::2,1::2])
-            WriteFciInput(HlInputName, EmbFock, nElec, Int2e=Int2e, Uhf=True )
+            WriteDumpFile(HlInputName, EmbFock, nElec, n2eOrb, Int2e=Int2e, Uhf=True, Ms2 = Ms2)
       BaseCmd = HlExecutable[HlMethod]
       BaseCmd += HlOption
       Cmd = "%s '%s'" % (BaseCmd, HlInputName)
@@ -139,10 +141,41 @@ class NormalDmet(object):
           Rdm1a = Read1Rdm(FileNameRdm + ".A")
           Rdm1b = Read1Rdm(FileNameRdm + ".B")
           Rdm1 = CombineSpinComps(Rdm1a, Rdm1b)
-      print "Rdm1 is:\n", Rdm1
+      print "fci Rdm1 is:\n", Rdm1
       Cleanup(BasePath)
       return FHlResults(Energy, EpTrace, nElec, Rdm1, Cmd, Output)
 
+   def ImpSolver(self,EmbFock,EmbRdm,HlMethod,n2eOrb,Int2e_=None,U_=None):
+      BasePath = mkdtemp(prefix=HlMethod, dir=dmetSet.TmpDir)
+      HlInputName = path.join(BasePath, HlMethod+"INP")
+      nElec = int(np.trace(EmbRdm)+0.005)
+      if self.OrbType == "UHF":
+         Ms2_ = int(np.trace(EmbRdm[::2,::2])+0.005)-int(np.trace(EmbRdm[1::2,1::2])+0.005)
+      if U_ is not None :
+         assert(U_ is not None)
+         if self.OrbType == "RHF":
+            WriteDumpFile(HlInputName, EmbFock, nElec, n2eOrb, U=U_ )
+         elif self.OrbType == "UHF":
+            WriteDumpFile(HlInputName, EmbFock, nElec, n2eOrb, U=U_, Uhf=True, Ms2 = Ms2_ )
+      else :
+         assert(Int2e_ is not None)
+         if self.OrbType == "RHF":
+            WriteDumpFile(HlInputName, EmbFock, nElec, n2eOrb, Int2e=Int2e_)
+         elif self.OrbType == "UHF":
+            Int2e = (Int2e_[0::2,0::2,0::2,0::2],
+                     Int2e_[1::2,1::2,1::2,1::2],
+                     Int2e_[0::2,0::2,1::2,1::2])
+            WriteDumpFile(HlInputName, EmbFock, nElec, n2eOrb, Int2e=Int2e_, Uhf=True, Ms2 = Ms2_)
+      if HlMethod == "Fci":
+         Energy, EpTrace, Rdm1, Cmd, Output = FindFciSolution(BasePath,np.shape(EmbFock)[0],n2eOrb)
+      elif HlMethod == "Dmrg":
+         dmrgConf = WriteDmrgConfigFile(BasePath,np.shape(EmbFock)[0],nElec)
+         Energy, EpTrace, Rdm1, Cmd, Output = FindDmrgSolution(BasePath,dmrgConf)
+      else :
+         raise Exception("You have to implement the interface for other solver")
+       
+      return FHlResults(Energy, EpTrace, nElec, Rdm1, Cmd, Output)
+         
 
 
 if __name__ == '__main__':
@@ -154,9 +187,13 @@ if __name__ == '__main__':
     mfdResult = Type.RunMfd(MfdHam)
     EmbBasis = Type.MakeEmbBasis(mfdResult.Rdm,[0,4])
     EmbFock, EmbRdm = Type.MakeEmbHam(MfdHam, mfdResult.Rdm, EmbBasis) 
-    hlResult = Type.ImpSolver(EmbFock,EmbRdm,"Fci",nSysTrace=2,U=5)
+    nImp = 2
+    #hlResult = Type.ImpSolver0(EmbFock,EmbRdm,"Fci",n2eOrb=nImp,U=1.0)
+    hlResult = Type.ImpSolver(EmbFock,EmbRdm,"Fci",n2eOrb=nImp,U_=1.0)
+    hlResult = Type.ImpSolver(EmbFock,EmbRdm,"Dmrg",n2eOrb=nImp,U_=1.0)
     #print hlResult.Energy
     #print hlResult.Energy2e
+    
 
 
 
