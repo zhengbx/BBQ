@@ -15,7 +15,7 @@ from results import FDmetResult
 from diis import FDiisContext
 from inputs import Input
 from normalDmet import NormalDmet
-from geometry import BuildLatticeFromInput
+from geometry import BuildLatticeFromInput, Wavefct
 from ham import Hamiltonian
 
 def InitGuess(inp_ham, inp_dmet, Lattice):
@@ -92,9 +92,10 @@ def main(inputdict):
 
    Lattice = BuildLatticeFromInput(Inp.GEOMETRY)
    HAM = Hamiltonian(Inp.HAMILTONIAN)
-   TYPE = NormalDmet
+   WAVEFCT = Wavefct(Inp.WAVEFUNCTION, Lattice)
+   TYPE = NormalDmet(WAVEFCT.Orbtype, WAVEFCT.nElec, WAVEFCT.nElecA, WAVEFCT.nElecB, WAVEFCT.Ms)
 
-    #print Lattice.UnitCell print function not implemented yet
+   #print Lattice.UnitCell print function not implemented yet
    Lattice.set_Hamiltonian(HAM)
 
    DmetMaxIt = Inp.DMET.max_iter
@@ -188,6 +189,7 @@ if __name__ == '__main__':
     initguess = np.diag([1.,0.,1.,0.])
     inpdic = {
         'HAMILTONIAN': {'Type': 'Hubbard', 'U': 3},
+        'WAVEFUNCTION': {'OrbType': 'UHF', 'filling': 0.5, 'Ms': 4},
         'GEOMETRY':
         {'UnitCell': {'Sites':sites, 'Shape':shape},
          'ClusterSize': np.array([2, 2]),
@@ -196,7 +198,7 @@ if __name__ == '__main__':
                         "Fitting":'FullRdm'},],
          'BoundaryCondition': 'pbc',},
        'DMET':
-       {'init_guess': initguess, 'OrbType': 'UHF'}
+       {'init_guess': initguess}
     }
     main(inpdic)
 
