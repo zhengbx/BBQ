@@ -114,8 +114,8 @@ class NormalDmet(object):
             EmbBasis = CombineSpinComps(EmbBasisA, EmbBasisB)
         return EmbBasis
  
-    def MakeEmbHam(self,MfdHam, MfdRdm, HAM, EmbBasis):
-        EmbFock = ToEmb(MfdHam,EmbBasis)
+    def MakeEmbHam(self, Lattice, MfdHam, MfdRdm, HAM, EmbBasis, fragsites):
+        EmbFock = ToEmb(Lattice, MfdHam,EmbBasis)
         EmbRdm = ToEmb(MfdRdm,EmbBasis)
         #FIXME: need to change the 2el integrals here as well (for FCI input)
         #nElecFull = int(np.trace(MfdRdm))

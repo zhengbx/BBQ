@@ -1,8 +1,12 @@
+from os import remove, path
+
 import numpy as np
 import scipy.linalg as la
+import itertools as it
+
 import settings as dmetSet
-from os import remove, path
-from helpers import FindRequiredTs
+from helpers import findindex
+
 
 def Diag1eHamiltonian(Fock, nElec, ThrDeg, LastOrb = None, NumVirts = None, fOrbOcc = None):  
     nOrb = Fock.shape[0]
@@ -133,24 +137,14 @@ def MakeEmbeddingBasis1(ImpSites, Rdm, ThrBathSvd):
     embBasis[EnvSites,nImp:] = bathBasis
     return embBasis
 
-def ToEmb(M,EmbBasis):
+def ToEmb(Lattice, M, EmbBasis):
     if M.shape[0] == 1:
         return np.dot(EmbBasis.T, np.dot(M,EmbBasis))
     else:
         # needs to take care of translational symmetry!
-        iOpTs = FindRequiredTs(M)
-        Op = np.zeros_like(M)
-        Op += M
-        Op = Op[iOpTs,:,:]
-        nsites_ucell = M.shape[1]
-        assert(M.shape[1] == M.shape[2])
-        EmbBasis = EmbBasis.reshape((M.shape[0], M.shape[1], EmbBasis.shape[1]))
-        for (i,ijk) in enumerate(self.iTs):
-            PF,I = MakeUnitCellPhasesForT_Restricted(ijk,iOpTs)
-            RowIR = np.einsum("t,trs,trl->sl", PF, Op, EmbBasis[I,:,:])
-            Out += np.einsum("rk,rl->kl",np.conj(EmbBasis[nsites_ucell*i:nsites_ucell*(i+1),:]), RowIR)
-        return Out
-
+        M_all = Lattice.expand(M)
+        return np.dot(EmbBasis.T, np.dot(M_all,EmbBasis))
+       
 from textwrap import dedent
 
 def WriteFile(FileName, Text):

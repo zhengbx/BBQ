@@ -7,6 +7,8 @@ import numpy as np
 import numpy.linalg as la
 import itertools as it
 
+from helpers import findindex
+
 class FUnitCell(object):
     def __init__(self, size, sites): # sites is a list of tuples
         self.size = np.array(size) # unit cell shape
@@ -79,7 +81,6 @@ class FLattice(object):
             for i in range(len(sc.sites)):
                 self.sites.append(np.dot(np.array(p), sc.size)  + sc.sites[i])
                 self.names.append(sc.names[i])
-     
         self.OrbType = OrbType
         self.h0 = None
         self.h0_kspace = None
@@ -125,12 +126,24 @@ class FLattice(object):
     def get_kpoints(self):
         kpoints = [np.fft.fftfreq(self.scsize[d], 1/(2*np.pi)) for d in range(self.dim)]
         return kpoints
+
+    def MakeUnitCellPhasesForT(self, ijkRow, iOpTs):
+        I = []
+        PF = []
+        for ijkOp in (self.supercell_list[o] for o in iOpTs):
+            ijkCol = ijkOp + ijkRow
+            PF.append(np.product(self.bc**((ijkCol) / self.scsize)))
+            I.append(findindex(self.supercell_list, ijkCol % self.scsize))
+        return np.array(PF), np.array(I)
+
   
     def expand(self, A):
         # expand reduced matrices, eg. Hopping matrix
-        assert(self.bc == 1)
-        B = np.zeros((self.nsites, self.nsites))
-        scnsites = self.supercell.nsites
+        assert(self.bc == 1 or self.bc == -1)
+        scnsites = A.shape[1]
+        nsites = A.shape[0] * A.shape[1] 
+        # ^ takes into account UHF case as well
+        B = np.zeros((nsites, nsites))
         nonzero = []
         for i in range(A.shape[0]):
             if not np.allclose(A[i], 0.):
@@ -138,9 +151,12 @@ class FLattice(object):
         for i in range(self.nscells):
             for j in nonzero:
                 pos = (self.supercell_list[i] + self.supercell_list[j]) % self.scsize
-                idx = self.supercell_list.index(pos)
-                B[i*scnsites:(i+1)*scnsites, idx*scnsites:(idx+1)*scnsites] = A[j]
-  
+                phase = np.product(self.bc**(pos))
+                idx = findindex(self.supercell_list, pos)
+                B[i*scnsites:(i+1)*scnsites, idx*scnsites:(idx+1)*scnsites] = phase*A[j]
+        return B
+
+
     def get_neighbor(self, dis = 1., name = None, sites = None):
         # return neighbors
         # for model systems, distance 1. usually means nearest neighbor

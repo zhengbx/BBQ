@@ -19,7 +19,7 @@ import numpy as np
 from numpy.linalg import *
 import scipy
 import scipy.optimize
-
+import itertools as it
 
 def PrintHeading(s, isize):
     """print a subdivision marker between program subsections.
@@ -127,6 +127,13 @@ def InvertPermutation(P):
     else:
         return IP
 
+def findindex(slist, element):
+    for (i, el) in enumerate(slist):
+        if np.all(el == element):
+            return i
+    return -1
+
+
 IsSquare = is_square
 ToSquare = to_square
 ToTriangle = to_triangle
@@ -185,15 +192,6 @@ def CombineSpinComps(hAlpha, hBeta, nSpinComp=2):
         return h
     else:
         assert(0)
-
-def FindRequiredTs(Op):
-    # make a list of Ts we need to consider in the transformation.
-    # if Op[iT,:,:] is zero, then we can skip the T.
-    iTs = []
-    for iT in range(self.nUnitCells):
-        if not np.allclose(Op[iT,:,:], 0.):
-            iTs.append(iT)
-    return np.array(iTs)
 
 
 def resmin(fn, x0, Algo="Hard"):
