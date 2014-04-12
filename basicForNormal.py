@@ -5,8 +5,8 @@ import scipy.linalg as la
 import itertools as it
 
 import settings as dmetSet
-from helpers import findindex
 
+from helpers import WriteFile, ReadFile, findindex
 
 def Diag1eHamiltonian(Fock, nElec, ThrDeg, LastOrb = None, NumVirts = None, fOrbOcc = None):  
     nOrb = Fock.shape[0]
@@ -141,16 +141,10 @@ def ToEmb(Lattice, M, EmbBasis):
     if M.shape[0] == 1:
         return np.dot(EmbBasis.T, np.dot(M,EmbBasis))
     else:
-        # needs to take care of translational symmetry!
         M_all = Lattice.expand(M)
         return np.dot(EmbBasis.T, np.dot(M_all,EmbBasis))
        
 from textwrap import dedent
-
-def WriteFile(FileName, Text):
-    File = open(FileName, "w")
-    File.write(Text)
-    File.close()
 
 def WriteDumpFile(FileName, Emb1e, n2eOrb, nElec, Ms2=0, U=None, Int2e=None, Uhf=False):
     if Uhf :
@@ -519,12 +513,6 @@ def block_schedule(M):
 
     lines.append("maxiter 30")
     return "\n".join(lines)
-
-def ReadFile(FileName):
-    File = open(FileName, "r")
-    Text = File.read()
-    File.close()
-    return Text
 
 def Read1Rdm(FileName):
     Text = ReadFile(FileName)

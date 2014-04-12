@@ -127,15 +127,6 @@ class FLattice(object):
         kpoints = [np.fft.fftfreq(self.scsize[d], 1/(2*np.pi)) for d in range(self.dim)]
         return kpoints
 
-    def MakeUnitCellPhasesForT(self, ijkRow, iOpTs):
-        I = []
-        PF = []
-        for ijkOp in (self.supercell_list[o] for o in iOpTs):
-            ijkCol = ijkOp + ijkRow
-            PF.append(np.product(self.bc**((ijkCol) / self.scsize)))
-            I.append(findindex(self.supercell_list, ijkCol % self.scsize))
-        return np.array(PF), np.array(I)
-
   
     def expand(self, A):
         # expand reduced matrices, eg. Hopping matrix
@@ -224,71 +215,147 @@ def BuildLatticeFromInput(inp_geom, OrbType = "RHF"):
     return lattice
 
 if __name__ == "__main__":
-    # build a 2d square lattice
-    sites = [(np.array([0., 0.]), "X")]
-    shape = np.array([
-      [1., 0.],
-      [0., 1.],
-    ])
-    unit = FUnitCell(shape, sites)
-    print "UnitCell"
-    print  unit.size
-    print "Sites:"
-    for i in range(len(unit.sites)):
-        print unit.names[i], unit.sites[i], "\t",
-        if (i+1)%6 == 0:
-            print
-    print
-    print
+    def test_2d_Hubbard():
+        # build a 2d square lattice
+        print "-" * 20
+        print "Test 2D Hubbard Model"
 
-    sc = FSuperCell(unit, np.array([2, 2]))
-    from fragments import FFragment
-    frags = [FFragment([0, 1, 2, 3], "Dmrg", "FullRdm")]
-    sc.set_fragments(frags)
-    print "SuperCell"
-    print sc.size
-    print "Sites:"
-    for i in range(len(sc.sites)):
-        print sc.names[i], sc.sites[i], "\t",
-        if (i+1)%6 == 0:
-            print
-    print
-    print
-    for i, f in enumerate(sc.fragments):
-        print "Fragment", i, f
-    print
+        sites = [(np.array([0., 0.]), "X")]
+        shape = np.array([
+          [1., 0.],
+          [0., 1.],
+        ])
+        unit = FUnitCell(shape, sites)
+        print "UnitCell"
+        print  unit.size
+        print "Sites:"
+        for i in range(len(unit.sites)):
+            print unit.names[i], unit.sites[i], "\t",
+            if (i+1)%6 == 0:
+                print
+        print
+        print
 
-    lattice = FLattice(np.array([4, 4]), sc, "pbc")
-    print "Lattice"
-    print lattice.size
-    print "Sites:"
-    for i in range(len(lattice.sites)):
-        print lattice.names[i], lattice.sites[i], "\t",
-        if (i+1)%6 == 0:
-            print
-    print
+        sc = FSuperCell(unit, np.array([2, 2]))
+        from fragments import FFragment
+        frags = [FFragment([0, 1, 2, 3], "Dmrg", "FullRdm")]
+        sc.set_fragments(frags)
+        print "SuperCell"
+        print sc.size
+        print "Sites:"
+        for i in range(len(sc.sites)):
+            print sc.names[i], sc.sites[i], "\t",
+            if (i+1)%6 == 0:
+                print
+        print
+        print
+        for i, f in enumerate(sc.fragments):
+            print "Fragment", i, f
+        print
 
-    print
-    print "Lattice Functions"
-    print "kpoints"
-    print lattice.get_kpoints()
-    print "nearest neigbors"
-    #print lattice.get_neighbor()[0]
-    #print lattice.get_neighbor()[1]
-    print "Inside lattice", lattice.get_neighbor(sites = [0,1,2,3])[0]
-    print "On boundary   ", lattice.get_neighbor(sites = [0,1,2,3])[1]
-    print
+        lattice = FLattice(np.array([4, 4]), sc, "pbc")
+        print "Lattice"
+        print lattice.size
+        print "Sites:"
+        for i in range(len(lattice.sites)):
+            print lattice.names[i], lattice.sites[i], "\t",
+            if (i+1)%6 == 0:
+                print
+        print
 
-    print "Test Hamiltonian Class"
+        print
+        print "Lattice Functions"
+        print "kpoints"
+        print lattice.get_kpoints()
+        print "nearest neigbors"
+        #print lattice.get_neighbor()[0]
+        #print lattice.get_neighbor()[1]
+        print "Inside lattice", lattice.get_neighbor(sites = [0,1,2,3])[0]
+        print "On boundary   ", lattice.get_neighbor(sites = [0,1,2,3])[1]
+        print
 
-    from ham import FHamHubbard
-    hub = FHamHubbard(U = 4., t = 1.)
-    lattice.set_Hamiltonian(hub)
-    print "Core Hamiltonian (real space)"
-    print lattice.get_h0()
-    print
-    print "Core Hamiltonian (k-space)"
-    print lattice.get_h0(kspace = True)
-    print
-    print "Test FFT"
-    print la.norm(lattice.FFTtoT(lattice.FFTtoK(lattice.get_h0())) - lattice.get_h0())
+        print "Test Hamiltonian Class"
+
+        from ham import FHamHubbard
+        hub = FHamHubbard(U = 4., t = 1.)
+        lattice.set_Hamiltonian(hub)
+        print "Core Hamiltonian (real space)"
+        print lattice.get_h0()
+        print
+        print "Core Hamiltonian (k-space)"
+        print lattice.get_h0(kspace = True)
+        print
+        print "Test FFT"
+        print la.norm(lattice.FFTtoT(lattice.FFTtoK(lattice.get_h0())) - lattice.get_h0())
+        print
+
+    test_2d_Hubbard()
+
+    def test_Quantum_Chemistry():
+        print "-" * 20
+        print "Test Ne VDZ-sp Model"
+
+        sites = [(np.array([0, 0, 0]), "Ne-VDZ")] * 8
+        shape = np.array([
+          [1., 0., 0.],
+          [0., 1., 0.],
+          [0., 0., 1.],
+        ])
+
+        unit = FUnitCell(shape, sites)
+        print "UnitCell"
+        print unit.size
+        print "Sites:"
+        for i in range(len(unit.sites)):
+            print unit.names[i], unit.sites[i], "\t",
+            if (i+1)%6 == 0:
+                print
+        print
+        print
+
+        sc = FSuperCell(unit, np.array([1, 1, 1]))
+        from fragments import FFragment
+        frags = [
+            FFragment([0], "Fci", "FullRdm", name = "A"),
+            FFragment([1, 2, 3], "Fci", "FullRdm", name = "B"),
+            FFragment([4, 5, 6], "Fci", "FullRdm", name = "C"),
+            FFragment([7], "Fci", "FullRdm", name = "D"),
+        ]
+        
+        sc.set_fragments(frags)
+        print "SuperCell"
+        print sc.size
+        print "Sites:"
+        for i in range(len(sc.sites)):
+            print sc.names[i], sc.sites[i], "\t",
+            if (i+1)%6 == 0:
+                print
+        print
+        print
+        for i, f in enumerate(sc.fragments):
+            print "Fragment", i, f
+        print
+
+        lattice = FLattice(np.array([1, 1, 1]), sc, "open")
+        print "Lattice"
+        print lattice.size
+        print "Sites:"
+        for i in range(len(lattice.sites)):
+            print lattice.names[i], lattice.sites[i], "\t",
+            if (i+1)%6 == 0:
+                print
+        print
+
+        print "Lattice Functions"
+        print "kpoints"
+        print lattice.get_kpoints()
+
+        print "Test Hamiltonian Class"
+        from ham import FHamQC
+        qcham = FHamQC(DumpFile = "tests/QC_Hamiltonian")
+        lattice.set_Hamiltonian(qcham)
+        print "Core Hamiltonian (real space)"
+        print lattice.get_h0()
+        print
+
+    test_Quantum_Chemistry()

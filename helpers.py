@@ -79,15 +79,6 @@ def WriteFile(FileName, Text):
     File.write(Text)
     File.close()
 
-def Read1Rdm(FileName):
-    Text = ReadFile(FileName)
-    Lines = Text.splitlines()
-    nRows,x,nCols = Lines[0].split()[-3:]
-    nRows = int(nRows)
-    nCols = int(nCols)
-    Numbers = map(float,(" ".join(Lines[1:nRows+1])).split())
-    return array(Numbers).reshape(nRows,nCols)
-
 def is_square(h):
     return len(h[0,:]) == len(h[:,0])
 
