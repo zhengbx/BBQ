@@ -55,7 +55,7 @@ def main(inputdict):
     #inputdict = eval(obj_code)
     Inp = Input(inputdict)
     #Inp = Input({'DMET':{'max_iter':10},'MFD':{'scf_solver':'UHF'}})
-
+    print Inp
     Lattice = BuildLatticeFromInput(Inp.GEOMETRY, Inp.WAVEFUNCTION.OrbType)
     HAM = Hamiltonian(Inp.HAMILTONIAN)
     WAVEFCT = Wavefct(Inp.WAVEFUNCTION, Lattice)
