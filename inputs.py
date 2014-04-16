@@ -216,6 +216,21 @@ class Input(object):
         # phony keywords must be saved before _merge_input2self 
         self._merge_input2self(self._input_dict, self._readonly)
 
+    def __str__(self):
+        def dict_str(d,level = 0):
+            str = ""
+            for key in sorted(d.keys()):
+                if isinstance(d[key], dict):
+                    str += "    " * level + "%-20s\n" % (key.__str__()+":") + dict_str(d[key], level+1) + "\n"
+                elif isinstance(d[key], numpy.ndarray):
+                    array_str = d[key].__repr__().replace("\n", "\n"+"    "*(level+6))
+                    str += "    " * level + "%-20s" % key.__str__() + "=    " + array_str + "\n"
+                else:
+                    str += "    " * level + "%-20s" % key.__str__() + "=    " + d[key].__str__() + "\n"
+            return str
+
+        return dict_str(self._input_dict, 1)
+
     def _merge_input2self(self, input_dict, read_only):
         # merge input_dict with the class attributes, so that the keyword xxx
         # can be accessed directly by self.xxx
