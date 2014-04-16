@@ -42,8 +42,8 @@ class Input(object):
             # phonon energy
     },
     'WAVEFUNCTION': {
-        'OrbType': None, 
-            # spin restriction: value(default='UHF', allow('UHF','RHF', 'ROHF')),
+        'OrbType': value(default='UHF', allow=('UHF','RHF', 'ROHF')), 
+            # spin restriction 
         'Ms': value(default=0),
             # spin quantum number: absolute value of S_z
         'charge': value(default=0),
@@ -133,12 +133,21 @@ class Input(object):
     'MFD': {
         'scf_solver': value(default='RHF',
                             allow=('RHF','UHF','BCS')),
+        'mfd_algo': value(default='hf', 
+                           allow=('diag1el','hf')),
+            # full hartree-fock or just 1el diagonalization for mfd
         'hf_follow_state': False,
             # mean field solver follows the initial guess or not
         'max_iter': 40,
             # maximum number of HF iterations
-        'conv_thrsh': value(1e-6, limits=(0,0.1)),
-            # convergence threshold for HF
+        'conv_thr_dE': value(1e-8, limits=(0,0.1)),
+            # convergence threshold for energy HF
+        'conv_thr_dOrb': value(1e-8, limits=(0,0.1)),
+            # convergence threshold for orbital gradient HF
+        'diis_thr': value(default=1e+99,limits=(0,0.1)),
+        'diis_start': value(default=8),
+        'diis_dim': value(default=12),
+            # diis keywords for HF
     },
     'FORMAT': {
         'verbose': value(default=5, allow=range(6)),

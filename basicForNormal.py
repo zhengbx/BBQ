@@ -7,12 +7,14 @@ import itertools as it
 import settings as dmetSet
 
 from helpers import WriteFile, ReadFile, findindex
+from helpers import ExtractSpinCompK, CombineSpinCompsK
+from diis import FDiisContext
 
 def Diag1eHamiltonian(Fock, nElec, ThrDeg, LastOrb = None, NumVirts = None, fOrbOcc = None):  
     nOrb = Fock.shape[0]
     assert(Fock.shape[0] == Fock.shape[1])
     assert(nElec <= nOrb)
-    Ew, Orbs = la.eigh(Fock) 
+    Ew, Orbs = la.eigh(Fock)
     iEws = Ew.argsort()
     #print "Ew is:", Ew
     Ew = Ew[iEws]
@@ -82,7 +84,6 @@ def DealGQNOrbitals(Ews, Orbs, nElec, ThrDeg):
     if nOrbAct != 0:
         OccNumbers[iOrbOcc] = nElecLeft / nOrbAct
     OccNumbers[iOrbClo] = 1
-
     assert(np.all(OccNumbers >= 0.))
     # make the rdm: rdm[r,s] = \sum_i orb[r,i] occ-num[i] orb[s,i]
     #                                = \sum_i (orb[r,i] occ-num[i])**.5 * (orb[s,i] occ-num[i])**.5
@@ -91,11 +92,116 @@ def DealGQNOrbitals(Ews, Orbs, nElec, ThrDeg):
     for gqn in xrange(Rdm.shape[0]):
         C = OrbsOcc[gqn,:,:]    # <- nSites x nOrb
         Rdm[gqn,:,:] = np.dot(C, np.conj(C.T))
+
     return Rdm, Mu, HlGap
 
+def MakeFock(RdmT, CoreH, Int2e, OrbType):
+    if len(Int2e.shape) == 1:
+        # local hubbard-type interaction
+        if OrbType == 'RHF':
+            Rho = np.real(np.diag(RdmT[0,:,:]))
+            jk1 = np.diag(Int2e * Rho)
+            jk = np.zeros_like(CoreH, Int2e.dtype)
+            jk[0,:,:] = jk1
+            FockT = CoreH + .5*jk
+        elif OrbType == 'UHF':
+            RhoSame = np.real(np.diag(RdmT[0,:,:]))
+            RhoTotal = RhoSame[ ::2] + RhoSame[1::2]
+            RhoTotal = np.hstack((RhoTotal,RhoTotal))
+            j1 = np.diag(Int2e * RhoTotal)
+            k1 = np.diag(Int2e * RhoSame)
+            j = np.zeros_like(CoreH, Int2e.dtype) 
+            j[0,:,:] = j1
+            k = np.zeros_like(CoreH, Int2e.dtype) 
+            k[0,:,:] = k1
+            FockT = CoreH + (j-k)
+    else:
+        # charge-cloud notation: Int2e_{ijkl} = (ij|kl)
+        # Int2e[::2,::2,::2,::2] = alpha-alpha
+        # Int2e[::2,::2,1::2,1::2] = alpha-beta
+        # Int2e[1::2,1::2,1::2,1::2] = beta-beta
+        # FIXME: check correctness RHF case 
+        if OrbType == 'RHF':
+            j = np.einsum("ijkl, kl -> ij", Int2e, RdmT[0,:,:])
+            k = np.einsum("ijkl, jl -> ik", Int2e, RdmT[0,:,:])
+            FockT = CoreH + j + 0.5*k
+        elif OrbType == 'UHF':
+            jA = np.einsum("ijkl, kl -> ij", Int2e[::2,::2,:,:], RdmT[0,:,:])
+            jB = np.einsum("ijkl, kl -> ij", Int2e[1::2,1::2,:,:], RdmT[0,:,:])
+            kAA = np.einsum("ijkl, jl -> ik", Int2e[::2,::2,::2,::2], RdmT[0,::2,::2])
+            kBB = np.einsum("ijkl, jl -> ik", Int2e[1::2,1::2,1::2,1::2], RdmT[0,1::2,1::2])
+            FockT = np.zeros_like(CoreH)
+            FockT += CoreH
+            FockT[0,::2,::2] += 0.5*(jA+kAA)
+            FockT[0,1::2,1::2] += 0.5*(jB+kBB)
+    return FockT
+
+def RunHf_kspace(FockK, Int2e, nElecA, nElecB, OrbType, Lattice, 
+                 ThrDeg, MaxIter, ThrdE, ThrdOrb, Diis_Start, Diis_Thr, Diis_Dim):
+    CoreH = np.zeros_like(FockK)
+    CoreH = Lattice.FFTtoT(FockK)
+    Converged = False
+    LastEnergy = 0.
+    dc = FDiisContext(Diis_Dim)
+
+    print "{:^5s} {:^14s} {:^14s} {:^11s} {:>4s}".format("ITER.","ENERGY","ENERGY CHANGE", "GRAD", "DIIS")
+    for it in xrange(MaxIter):
+        if OrbType == 'RHF':
+            Ews, Orbs = Diag1eGQNHamiltonian(FockK)  
+            Rdm, Mu, Gap = DealGQNOrbitals(Ews, Orbs, nElecA, ThrDeg)  
+            Rdm = 2*Rdm
+            RdmT = Lattice.FFTtoT(Rdm)
+            FockT = MakeFock(RdmT, CoreH, Int2e, OrbType)
+
+        elif OrbType == 'UHF':
+            EwsA, OrbsA = Diag1eGQNHamiltonian(ExtractSpinCompK(FockK,0))
+            RdmA, MuA, GapA = DealGQNOrbitals(EwsA, OrbsA, nElecA, ThrDeg)  
+            EwsB, OrbsB = Diag1eGQNHamiltonian(ExtractSpinCompK(FockK,1))  
+            RdmB, MuB, GapB = DealGQNOrbitals(EwsB, OrbsB, nElecB, ThrDeg)  
+            RdmK = CombineSpinCompsK(RdmA, RdmB)
+            Mu = np.array([MuA, MuB])
+            Gap = np.array([GapA, GapB])
+            RdmT = Lattice.FFTtoT(RdmK)
+            FockT = MakeFock(RdmT, CoreH, Int2e, OrbType)
+        Energy = (0.5 * (np.dot(FockT.flatten(), RdmT.flatten()) 
+                  + np.dot(CoreH.flatten(), RdmT.flatten()))).real
+        FockK = Lattice.FFTtoK(FockT)
+        OrbGrad = np.zeros_like(FockK)
+        for ik in xrange(FockK.shape[0]):
+            OrbGrad[ik] = np.dot(FockK[ik],RdmK[ik])
+            OrbGrad[ik] = OrbGrad[ik] - np.conj(OrbGrad[ik].T)
+            if OrbType == "UHF":
+               OrbGrad[ik, ::2,1::2] = 0.
+               OrbGrad[ik,1::2, ::2] = 0.
+        fOrbGrad = la.norm(OrbGrad.flatten())
+        dEnergy = Energy - LastEnergy
+        LastEnergy = Energy
+        print " {:5d} {:14.8f} {:+14.8f} {:11.2e} {:>6s}".format(it+1, Energy, dEnergy, fOrbGrad, dc)
+
+        if (fOrbGrad < ThrdOrb and abs(dEnergy) < ThrdE):
+            Converged = True
+            break
+        if (it == MaxIter - 1):
+            break 
+
+        SkipDiis = it < Diis_Start or fOrbGrad > Diis_Thr
+        FockT, OrbGrad, c0 = dc.Apply(FockT, OrbGrad, Skip=SkipDiis)
+        if not SkipDiis:
+            FockK = Lattice.FFTtoK(FockT)
+
+    if not Converged :
+        ErrMsg = "%s failed to converge."\
+                  "  NIT =%4i  GRAD=%8.2e  DEN=%8.2e" % (OrbType, it+1, 
+                                                         fOrbGrad, dEnergy)
+        print "WARNING: %s" % ErrMsg
+
+    return RdmT, Mu, Gap
+
+def RunHf_xspace(FockT, Int2e, nElecA, nElecB, OrbType, ThrDeg, MaxIter, ThrConv):
+    raise Exception(" real-space HF not implemented yet")
+    return Rdm, Mu, HlGap
 
 def MakeEmbeddingBasis(ImpSites, Rdm, ThrBathSvd):
-    Rdm = Rdm.reshape((Rdm.shape[0]*Rdm.shape[1],) + Rdm.shape[2:]) 
     if (type(ImpSites) is not np.ndarray):
         ImpSites = np.array(ImpSites, int)
     nImp = len(ImpSites)
@@ -106,7 +212,7 @@ def MakeEmbeddingBasis(ImpSites, Rdm, ThrBathSvd):
     ew,ev = la.eigh(S)
     bathIndex = [list(ew).index(o) for o in ew if o > ThrBathSvd]
     nBath = len(bathIndex)
-    bathBasis = np.dot(EnvImpRdm,ev[:,bathIndex]*ew[bathIndex]**(-0.5))
+    bathBasis = np.dot(EnvImpRdm,ev[:,bathIndex]*(ew[bathIndex])**(-0.5))
     print "the orthogonal of basis:\n", np.dot(bathBasis.T,bathBasis)
     embBasis = np.zeros((Rdm.shape[0],nImp+nBath))
     embBasis[ImpSites,:nImp] = np.eye(nImp)

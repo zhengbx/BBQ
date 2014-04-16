@@ -23,9 +23,16 @@ class FHlResults(object):
         self.output = output
 
 class NormalDmet(object):
-    def __init__(self, OrbType, nElec=None, nElecA=None, nElecB=None, Ms2=None, ThrDeg=1.0e-8, ThrBathSvd = 1.0e-8):
+    def __init__(self, inp_mfd, OrbType, nElec=None, nElecA=None, nElecB=None, Ms2=None, ThrDeg=1.0e-8, ThrBathSvd = 1.0e-8):
         self.MfdThrDeg = ThrDeg
         self.MebThrBathSvd = ThrBathSvd
+        self.MfdAlgo = inp_mfd.mfd_algo
+        self.MaxIter = inp_mfd.max_iter
+        self.Thr_dE = inp_mfd.conv_thr_dE
+        self.Thr_dOrb = inp_mfd.conv_thr_dOrb
+        self.diis_thr = inp_mfd.diis_thr
+        self.diis_start = inp_mfd.diis_start
+        self.diis_dim = inp_mfd.diis_dim
         self.OrbType = OrbType
         if nElecA is not None :
             self.MfdnElecA = nElecA
@@ -41,82 +48,65 @@ class NormalDmet(object):
             self.MfdnElecA = nElec/2
             self.MfdnElecB = nElec/2
         elif self.OrbType == "ROHF":
-            raise Exception("restricted open shell hartree fock haven't implemented yet")
+            raise Exception("restricted open-shell hartree-fock not implemented yet")
 
-    def RunMfd(self, MfdHam, HamBlockDiag=False):
+    def RunMfd(self, MfdHam, Int2e, Lattice, HamBlockDiag=False):
         if HamBlockDiag == True :
-             if self.OrbType == "RHF":
-                 Ews, Orbs = Diag1eGQNHamiltonian(MfdHam)  
-                 Rdm, Mu, Gap = DealGQNOrbitals(Ews, Orbs, self.MfdnElecA, self.MfdThrDeg)  
-                 Rdm = 2*Rdm
-             elif self.OrbType == "UHF":
-                 EwsA, OrbsA = Diag1eGQNHamiltonian(ExtractSpinComp(MfdHam,0))  
-                 RdmA, MuA, GapA = DealGQNOrbitals(EwsA, OrbsA, self.MfdnElecA, self.MfdThrDeg)  
-                 EwsB, OrbsB = Diag1eGQNHamiltonian(ExtractSpinComp(MfdHam,1))  
-                 RdmB, MuB, GapB = DealGQNOrbitals(EwsB, OrbsB, self.MfdnElecB, self.MfdThrDeg)  
-                 Rdm = CombineSpinComps(RdmA, RdmB)
-                 Mu = CombineSpinComps(MuA, MuB)
-                 Gap = CombineSpinComps(GapA, GapB)
+            if self.MfdAlgo == 'diag1el':
+                if self.OrbType == "RHF":
+                    Ews, Orbs = Diag1eGQNHamiltonian(MfdHam)  
+                    Rdm, Mu, Gap = DealGQNOrbitals(Ews, Orbs, self.MfdnElecA, self.MfdThrDeg)  
+                    Rdm = 2*Rdm
+                elif self.OrbType == "UHF":
+                    EwsA, OrbsA = Diag1eGQNHamiltonian(ExtractSpinCompK(MfdHam,0))
+                    RdmA, MuA, GapA = DealGQNOrbitals(EwsA, OrbsA, self.MfdnElecA, self.MfdThrDeg)  
+                    EwsB, OrbsB = Diag1eGQNHamiltonian(ExtractSpinCompK(MfdHam,1))  
+                    RdmB, MuB, GapB = DealGQNOrbitals(EwsB, OrbsB, self.MfdnElecB, self.MfdThrDeg)  
+                    Rdm = CombineSpinCompsK(RdmA, RdmB)
+                    Mu = np.array([MuA, MuB])
+                    Gap = np.array([GapA, GapB])
+            elif self.MfdAlgo == 'hf':
+                Rdm, Mu, Gap = RunHf_kspace(MfdHam, Int2e, self.MfdnElecA, self.MfdnElecB, 
+                                           self.OrbType, Lattice, self.MfdThrDeg, self.MaxIter, 
+                                           self.Thr_dE, self.Thr_dOrb, 
+                                           self.diis_start, self.diis_thr, self.diis_dim)  
+                   
         else :
-             if self.OrbType == "RHF":
-                 Rdm, Mu, Gap = Diag1eHamiltonian(MfdHam, self.MfdnElec, self.MfdThrDeg) 
-                 nElecFull = np.trace(Rdm)
-                 #print "nElec is:" , nElecFull, int(nElecFull+0.1)
-                 #Rdm = 2*Rdm
-                 #nElecFull = np.trace(Rdm)
-                 #print "nElec is:" , nElecFull, int(nElecFull+0.1)
-        #raise SystemExit
-             elif self.OrbType == "UHF":
-                 RdmA, MuA, GapA = Diag1eHamiltonian(ExtractSpinComp(MfdHam,0), self.MfdnElecA, self.MfdThrDeg) 
-                 RdmB, MuB, GapB = Diag1eHamiltonian(ExtractSpinComp(MfdHam,0), self.MfdnElecB, self.MfdThrDeg) 
-                 Rdm = CombineSpinComps(RdmA, RdmB)
-                 Mu = CombineSpinComps(MuA, MuB)
-                 Gap = CombineSpinComps(GapA, GapB)
-        return FMfdResults(Rdm,Mu,Gap)
+            if self.MfdAlgo == 'diag1el':
+                if self.OrbType == "RHF":
+                    Rdm, Mu, Gap = Diag1eHamiltonian(MfdHam, self.MfdnElec, self.MfdThrDeg) 
+                    nElecFull = np.trace(Rdm)
+                    #print "nElec is:" , nElecFull, int(nElecFull+0.1)
+                    #Rdm = 2*Rdm
+                    #nElecFull = np.trace(Rdm)
+                    #print "nElec is:" , nElecFull, int(nElecFull+0.1)
+                    #raise SystemExit
+                elif self.OrbType == "UHF":
+                    RdmA, MuA, GapA = Diag1eHamiltonian(ExtractSpinComp(MfdHam,0), self.MfdnElecA, self.MfdThrDeg) 
+                    RdmB, MuB, GapB = Diag1eHamiltonian(ExtractSpinComp(MfdHam,0), self.MfdnElecB, self.MfdThrDeg) 
+                    Rdm = CombineSpinComps(RdmA, RdmB)
+                    Mu = np.array([MuA, MuB])
+                    Gap = np.array([GapA, GapB])
+            elif self.MfdAlgo == 'hf':                   
+                Rdm, Mu, Gap = RunHf_xspace(MfdHam, HAM.getInt2e, self.MfdnElecA, self.MfdnElecB, 
+                                            self.OrbType, Lattice, self.MfdThrDeg, self.MaxIter, 
+                                            self.Thr_dE, self.Thr_dOrb, 
+                                            self.diis_start, self.diis_thr, self.diis_dim)  
 
-    def RunMfd(self, MfdHam, HamBlockDiag=False):
-        if HamBlockDiag == True :
-            if self.OrbType == "RHF":
-                Ews, Orbs = Diag1eGQNHamiltonian(MfdHam)  
-                Rdm, Mu, Gap = DealGQNOrbitals(Ews, Orbs, self.MfdnElecA, self.MfdThrDeg)  
-                Rdm = 2*Rdm
-            elif self.OrbType == "UHF":
-                EwsA, OrbsA = Diag1eGQNHamiltonian(ExtractSpinComp(MfdHam,0))  
-                RdmA, MuA, GapA = DealGQNOrbitals(EwsA, OrbsA, self.MfdnElecA, self.MfdThrDeg)  
-                EwsB, OrbsB = Diag1eGQNHamiltonian(ExtractSpinComp(MfdHam,1))  
-                RdmB, MuB, GapB = DealGQNOrbitals(EwsB, OrbsB, self.MfdnElecB, self.MfdThrDeg)  
-                Rdm = CombineSpinComps(RdmA, RdmB)
-                Mu = CombineSpinComps(MuA, MuB)
-                Gap = CombineSpinComps(GapA, GapB)
-        else :
-            if self.OrbType == "RHF":
-                Rdm, Mu, Gap = Diag1eHamiltonian(MfdHam, self.MfdnElec, self.MfdThrDeg) 
-                nElecFull = np.trace(Rdm)
-                #print "nElec is:" , nElecFull, int(nElecFull+0.1)
-                #Rdm = 2*Rdm
-                #nElecFull = np.trace(Rdm)
-                #print "nElec is:" , nElecFull, int(nElecFull+0.1)
-                #raise SystemExit
-            elif self.OrbType == "UHF":
-                RdmA, MuA, GapA = Diag1eHamiltonian(ExtractSpinComp(MfdHam,0), self.MfdnElecA, self.MfdThrDeg) 
-                RdmB, MuB, GapB = Diag1eHamiltonian(ExtractSpinComp(MfdHam,0), self.MfdnElecB, self.MfdThrDeg) 
-                Rdm = CombineSpinComps(RdmA, RdmB)
-                Mu = CombineSpinComps(MuA, MuB)
-                Gap = CombineSpinComps(GapA, GapB)
         return FMfdResults(Rdm,Mu,Gap)
 
     def MakeEmbBasis(self,MfdRdm,ImpSites):
         if self.OrbType == "RHF":
             EmbBasis = MakeEmbeddingBasis(ImpSites, MfdRdm, self.MebThrBathSvd)
         elif self.OrbType == "UHF":
-            EmbBasisA = MakeEmbeddingBasis(ImpSites[::2]/2, ExtractSpinComp(MfdRdm,0), self.MebThrBathSvd)
-            EmbBasisB = MakeEmbeddingBasis(ImpSites[1::2]/2, ExtractSpinComp(MfdRdm,1), self.MebThrBathSvd)
+            EmbBasisA = MakeEmbeddingBasis(ImpSites, ExtractSpinComp(MfdRdm,0), self.MebThrBathSvd)
+            EmbBasisB = MakeEmbeddingBasis(ImpSites, ExtractSpinComp(MfdRdm,1), self.MebThrBathSvd)
             EmbBasis = CombineSpinComps(EmbBasisA, EmbBasisB)
         return EmbBasis
  
     def MakeEmbHam(self, Lattice, MfdHam, MfdRdm, HAM, EmbBasis, fragsites):
-        EmbFock = ToEmb(Lattice, MfdHam,EmbBasis)
-        EmbRdm = ToEmb(MfdRdm,EmbBasis)
+        EmbFock = ToEmb(Lattice, MfdHam, EmbBasis)
+        EmbRdm = ToEmb(Lattice,  MfdRdm, EmbBasis)
         #FIXME: need to change the 2el integrals here as well (for FCI input)
         #nElecFull = int(np.trace(MfdRdm))
         #print "nElec is:" , nElecFull
@@ -176,7 +166,7 @@ class NormalDmet(object):
         Cleanup(BasePath)
         return FHlResults(Energy, EpTrace, nElec, Rdm1, Cmd, Output)
 
-    def ImpSolver(self,EmbFock,EmbRdm,HlMethod,n2eOrb,Int2e_=None,U_=None):
+    def ImpSolver(self,EmbCoreH,EmbFock,EmbRdm,HlMethod,n2eOrb,Int2e_=None,U_=None):
         BasePath = mkdtemp(prefix=HlMethod, dir=dmetSet.TmpDir)
         HlInputName = path.join(BasePath, HlMethod+"INP")
         nElec = int(np.trace(EmbRdm)+0.005)
@@ -213,7 +203,6 @@ class NormalDmet(object):
         norbs = sc.nsites
         if OrbType == "UHF":
             norbs *= 2
-
         if dmet_inp.init_guess_type is None:
             Vcor = np.zeros((norbs, norbs))
             Vcor += np.eye(norbs) * shift
@@ -234,7 +223,7 @@ class NormalDmet(object):
         elif dmet_inp.init_guess_type == 'AF' and OrbType == "UHF":
             print "Warning: Automatic assignment of AF order may not be physical"
             assert(len(sc.fragments) == 1)
-            Vcor_diag = np.array(norbs)
+            Vcor_diag = np.zeros((norbs))
             Vcor_diag[::4] = U
             Vcor_diag[3::4] = U
             Vcor = np.diag(Vcor_diag)

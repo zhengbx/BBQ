@@ -49,19 +49,13 @@ def FitCorrelationPotential(Input, GEOM, TYPE, EmbMfdHam, nEmb, RdmHl):
 
 def main(inputdict):
 
-    ##input parameters should be read from file
-    #inputfile = open(argv[0], 'r')
-    #obj_code = 'dict({})'.format(inputfile.read())
-    #inputdict = eval(obj_code)
     Inp = Input(inputdict)
-    #Inp = Input({'DMET':{'max_iter':10},'MFD':{'scf_solver':'UHF'}})
 
     Lattice = BuildLatticeFromInput(Inp.GEOMETRY, Inp.WAVEFUNCTION.OrbType)
     HAM = Hamiltonian(Inp.HAMILTONIAN)
     WAVEFCT = Wavefct(Inp.WAVEFUNCTION, Lattice)
-    HamBlockDiag = True
-    TYPE = NormalDmet(WAVEFCT.OrbType, WAVEFCT.nElec, WAVEFCT.nElecA, WAVEFCT.nElecB, WAVEFCT.Ms)
-
+    TYPE = NormalDmet(Inp.MFD, WAVEFCT.OrbType, WAVEFCT.nElec, WAVEFCT.nElecA, WAVEFCT.nElecB, WAVEFCT.Ms)
+  
     #print Lattice.UnitCell print function not implemented yet
     Lattice.set_Hamiltonian(HAM)
 
@@ -73,27 +67,46 @@ def main(inputdict):
 
 
     MfdHam = Lattice.get_h0()
-
     FSCoreHam = Lattice.get_h0()
+    Int2e = HAM.get_Int2e(Lattice, WAVEFCT.OrbType)
 
     Fragments = Lattice.supercell.fragments
   
     dc = FDiisContext(DiisDim)
-    VcorLarge = TYPE.GuessVcor(WAVEFCT.OrbType, Inp.DMET, Lattice.supercell)
-
+    VcorLarge = TYPE.GuessVcor(WAVEFCT.OrbType, Inp.DMET, Lattice.supercell, HAM.U)
+ 
     for iMacroIt in range(DmetMaxIt):
-        MfdHam_aug = MfdHam + VcorLarge
-        MfdResult = TYPE.RunMfd(MfdHam_aug, HamBlockDiag)
-        Rdm = MfdResult.Rdm
+        MfdHam_aug = np.zeros(MfdHam.shape)
+        MfdHam_aug += MfdHam
+        MfdHam_aug[0] += VcorLarge
+        if HAM.transinv == True:
+            # use translational symmetry
+            MfdHamK_aug = Lattice.FFTtoK(MfdHam_aug) 
+            MfdResult = TYPE.RunMfd(MfdHamK_aug, Int2e, Lattice, HamBlockDiag = True) 
+            MfdRdm = Lattice.FFTtoT(MfdResult.Rdm)
+        else:
+            MfdResult = TYPE.RunMfd(MfdHam_aug, HamBlockDiag = False) 
+            MfdRdm = MfdResult.Rdm
         FragmentResults = []
         FragmentPotentials = []
         for (iFragment,Fragment) in enumerate(Fragments):
             if Fragment.get_emb_method() is not None:
-                EmbBasis = TYPE.MakeEmbBasis(Rdm, Fragment.get_sites())
-                EmbHam, EmbMfdHam, EmbRdm = TYPE.MakeEmbHam(EmbBasis, MfdHam, HAM, Fragment.get_sites())
-                HlResults = TYPE.ImpSolver(EmbHam, EmbMfdHam, Fragment.get_emb_method())
+                EmbBasis = TYPE.MakeEmbBasis(MfdRdm.reshape(
+                                             (MfdRdm.shape[0]*MfdRdm.shape[1],) 
+                                             + MfdRdm.shape[2:]), 
+                                             Fragment.get_sites())
+                # check EmbBasis correct
+                # trafo Int2e, n2eOrb
+                EmbHam, EmbMfdHam, Int2e, EmbRdm = TYPE.MakeEmbHam(Lattice, 
+                                                                  MfdHam_aug, MfdRdm, 
+                                                                  HAM, EmbBasis, 
+                                                                  Fragment.get_sites())
+                HlResults = TYPE.ImpSolver(EmbCoreH, EmbMfdHam, EmbRdm, 
+                                          Fragment.get_emb_method(), 
+                                          Fragment.get_sites(), Int2e)
                 FragmentResults.append((Fragment, HlResults))
-                vloc = FitCorrelationPotential(Inp, GEOM, TYPE, EmbMfdHam, TYPE.MakeEmbBasis.nEmb, RdmHl)
+                vloc = FitCorrelationPotential(Inp, GEOM, TYPE, EmbMfdHam, 
+                                              TYPE.MakeEmbBasis.nEmb, RdmHl)
                 FragmentPotentials.append(vloc)
         ClusterFactor = GEOM._EnergyFactor()
         # ^- for normalization with super-cell cluster size. Purely cosmetic.
@@ -152,7 +165,6 @@ if __name__ == '__main__':
         [1., 0.],
         [0., 1.],
     ])
-    initguess = np.diag([1.,0.,0.,1.,0.,1.,0.,1.])
     inpdic = {
         'HAMILTONIAN': {'Type': 'Hubbard', 'U': 3},
         'WAVEFUNCTION': {'OrbType': 'UHF', 'filling': 0.5, 'Ms': 0},
@@ -164,7 +176,9 @@ if __name__ == '__main__':
                         "Fitting":'FullRdm'},],
          'BoundaryCondition': 'pbc',},
        'DMET':
-       {'init_guess': initguess}
+       {'init_guess_type': 'AF'},
+       'MFD':
+       {'mfd_algo': 'hf'}
     }
     main(inpdic)
 
