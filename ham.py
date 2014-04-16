@@ -11,6 +11,7 @@ class FHamHubbard(object):
     def __init__(self, U, t = 1.):
         self.U = U
         self.t = t
+        self.transinv = True
 
     def build_h0(self, lattice):
         bc = lattice.bc
@@ -20,24 +21,33 @@ class FHamHubbard(object):
             H0 = np.zeros((nsc, ncellsites, ncellsites))
             pairs = lattice.get_neighbor(sites = range(ncellsites))
             for nn in pairs[0]:
-                H0[nn[1] / ncellsites, nn[0], nn[1] % ncellsites] = self.t
+                H0[nn[1] / ncellsites, nn[1] % ncellsites, nn[0]] = self.t
             for nn in pairs[1]:
-                H0[nn[1] / ncellsites, nn[0], nn[1] % ncellsites] = self.t * bc
+                H0[nn[1] / ncellsites, nn[1] % ncellsites, nn[0]] = self.t * bc
+            #for nn in pairs[0]:
+            #    H0[nn[1] / ncellsites, nn[0], nn[1] % ncellsites] = self.t
+            #for nn in pairs[1]:
+            #    H0[nn[1] / ncellsites, nn[0], nn[1] % ncellsites] = self.t * bc
         else:
             raise Exception("Unsupported boundary condition")
         
         return H0
 
-    def get_Int2e(self):
+    def get_Int2e(self, lattice, orbtype):
         # this should be a general function for all types of Hamiltonians
         # it returns a tuple (Int2e, U)
-        return (None, self.U)
+        if orbtype == "RHF":
+            Int2e = self.U * np.ones(lattice.supercell.nsites)
+        elif orbtype == "UHF":
+            Int2e = self.U * np.ones(2*lattice.supercell.nsites)
+        return Int2e
 
 class FHamQC(object):
     """
     Quantum chemistry Hamiltonian without periodic boundary condition
     """
     def __init__(self, nsites = None, Int1e = None, Int2e = None, nelecA = None, nelecB = None, CoreE = None, DumpFile = None):
+        self.transinv = False
         if nsites is not None:
             self.nsites = nsites
             self.Int1e = Int1e
