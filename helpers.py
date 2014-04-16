@@ -148,9 +148,9 @@ def ExtractSpinComp(h,iComp, nSpinComp=2):
         assert(iComp < nSpinComp)
         assert(h.shape[0] % 2 == 0 and h.shape[1] % 2 == 0)
         return h[iComp::2,iComp::2]
-    if len(h.shape) == 3:
-        assert(iComp < nSpinComp)
-        return h[:, iComp::2,iComp::2]
+    #if len(h.shape) == 3:
+    #    assert(iComp < nSpinComp)
+    #    return h[:, iComp::2,iComp::2]
         
 def CombineSpinComps(hAlpha, hBeta, nSpinComp=2):
     if ( hAlpha is None ):
@@ -170,16 +170,41 @@ def CombineSpinComps(hAlpha, hBeta, nSpinComp=2):
         h[::2] = hAlpha
         h[1::2] = hBeta
         return h
+    else:
+        assert(0)
+
+def ExtractSpinCompK(h,iComp, nSpinComp=2):
+    # return alpha or beta components
+    if ( h is None ):
+        return None
+    if ( nSpinComp == 1 ):
+        return h
+    if len(h.shape) == 2:
+        assert(iComp < nSpinComp)
+        assert(h.shape[1] % 2 == 0 )
+        return h[:,iComp::2]
+    if len(h.shape) == 3:
+        assert(iComp < nSpinComp)
+        assert(h.shape[1] % 2 == 0 and h.shape[2] % 2 == 0)
+        return h[:, iComp::2,iComp::2]
+        
+def CombineSpinCompsK(hAlpha, hBeta, nSpinComp=2):
+    if ( hAlpha is None ):
+        return None
+    if ( nSpinComp == 1 ):
+        return hAlpha
+    assert(hAlpha.shape == hBeta.shape)
+    if ( len(hAlpha.shape) == 2 ):
+        N,M = hAlpha.shape
+        h = zeros((N,2*M),hAlpha.dtype)
+        h[:,::2] = hAlpha
+        h[:,1::2] = hBeta
+        return h
     elif ( len(hAlpha.shape) == 3 ):
         N,n,m = hAlpha.shape 
         h = zeros((N,2*n,2*m),hAlpha.dtype)
         h[:,::2,::2] = hAlpha
         h[:,1::2,1::2] = hBeta
-        return h
-    elif ( len(hAlpha.shape) == 0 ):
-        h = np.zeros((2),hAlpha.dtype)
-        h[0] = hAlpha
-        h[1] = hBeta
         return h
     else:
         assert(0)
