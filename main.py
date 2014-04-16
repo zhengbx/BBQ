@@ -50,6 +50,7 @@ def FitCorrelationPotential(Input, GEOM, TYPE, EmbMfdHam, nEmb, RdmHl):
 def main(inputdict):
 
     Inp = Input(inputdict)
+    print Inp    
 
     Lattice = BuildLatticeFromInput(Inp.GEOMETRY, Inp.WAVEFUNCTION.OrbType)
     HAM = Hamiltonian(Inp.HAMILTONIAN)
