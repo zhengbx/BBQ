@@ -36,11 +36,16 @@ class FHamHubbard(object):
     def get_Int2e(self, lattice, orbtype):
         # this should be a general function for all types of Hamiltonians
         # it returns a tuple (Int2e, U)
-        if orbtype == "RHF":
-            Int2e = self.U * np.ones(lattice.supercell.nsites)
-        elif orbtype == "UHF":
-            Int2e = self.U * np.ones(2*lattice.supercell.nsites)
-        return Int2e
+        #if orbtype == "RHF":
+        #    Int2e = self.U * np.ones(lattice.supercell.nsites)
+        #elif orbtype == "UHF":
+        #    Int2e = self.U * np.ones(2*lattice.supercell.nsites)
+        return (None, self.U)
+
+    def get_core_energy(self, lattice): 
+        # for lattice models, take core energy to be zero. 
+        # for general hamiltonian, this constant depends on the geometry though.
+        return 0.
 
 class FHamQC(object):
     """
