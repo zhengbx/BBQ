@@ -7,7 +7,7 @@ import itertools as it
 import settings as dmetSet
 
 from helpers import WriteFile, ReadFile, findindex
-from helpers import ExtractSpinCompK, CombineSpinCompsK
+from helpers import ExtractSpinCompK, CombineSpinCompsK, CombineSpinComps
 from diis import FDiisContext
 
 def Diag1eHamiltonian(Fock, nElec, ThrDeg, LastOrb = None, NumVirts = None, fOrbOcc = None):  
@@ -95,8 +95,10 @@ def DealGQNOrbitals(Ews, Orbs, nElec, ThrDeg):
 
     return Rdm, Mu, HlGap
 
-def MakeFock(RdmT, CoreH, Int2e, OrbType):
-    if len(Int2e.shape) == 1:
+def MakeFock(RdmT, CoreH, Int2e_, OrbType):
+    if Int2e_[0] is None:
+        assert(Int2e_[1] is not None)
+        Int2e = Int2e_[1] * np.ones(RdmT[0].shape[1])
         # local hubbard-type interaction
         if OrbType == 'RHF':
             Rho = np.real(np.diag(RdmT[0,:,:]))
@@ -116,6 +118,7 @@ def MakeFock(RdmT, CoreH, Int2e, OrbType):
             k[0,:,:] = k1
             FockT = CoreH + (j-k)
     else:
+        assert(Int2e_[0] is not None)
         # charge-cloud notation: Int2e_{ijkl} = (ij|kl)
         # Int2e[::2,::2,::2,::2] = alpha-alpha
         # Int2e[::2,::2,1::2,1::2] = alpha-beta
@@ -195,11 +198,11 @@ def RunHf_kspace(FockK, Int2e, nElecA, nElecB, OrbType, Lattice,
                                                          fOrbGrad, dEnergy)
         print "WARNING: %s" % ErrMsg
 
-    return RdmT, Mu, Gap
+    return RdmT, Mu, Gap, Energy
 
 def RunHf_xspace(FockT, Int2e, nElecA, nElecB, OrbType, ThrDeg, MaxIter, ThrConv):
     raise Exception(" real-space HF not implemented yet")
-    return Rdm, Mu, HlGap
+    return Rdm, Mu, Gap, Energy
 
 def MakeEmbeddingBasis(ImpSites, Rdm, ThrBathSvd):
     if (type(ImpSites) is not np.ndarray):
@@ -209,10 +212,11 @@ def MakeEmbeddingBasis(ImpSites, Rdm, ThrBathSvd):
     EnvSites = np.array(EnvSites)
     EnvImpRdm = 1.*Rdm[EnvSites,:][:,ImpSites]
     S = np.dot(EnvImpRdm.T,EnvImpRdm)
-    ew,ev = la.eigh(S)
-    bathIndex = [list(ew).index(o) for o in ew if o > ThrBathSvd]
+    ew,ev = la.eigh(-S)
+   
+    bathIndex = [list(ew).index(o) for o in ew if -o > ThrBathSvd]
     nBath = len(bathIndex)
-    bathBasis = np.dot(EnvImpRdm,ev[:,bathIndex]*(ew[bathIndex])**(-0.5))
+    bathBasis = np.dot(EnvImpRdm,ev[:,bathIndex]*(-ew[bathIndex])**(-0.5))
     print "the orthogonal of basis:\n", np.dot(bathBasis.T,bathBasis)
     embBasis = np.zeros((Rdm.shape[0],nImp+nBath))
     embBasis[ImpSites,:nImp] = np.eye(nImp)
@@ -252,9 +256,14 @@ def ToEmb(Lattice, M, EmbBasis):
        
 from textwrap import dedent
 
-def WriteDumpFile(FileName, Emb1e, n2eOrb, nElec, Ms2=0, U=None, Int2e=None, Uhf=False):
+def WriteDumpFile(FileName, Emb1e, nElec, n2eOrb, Ms2=0, U=None, Int2e=None, Uhf=False):
     if Uhf :
         nOrb = Emb1e.shape[0]/2
+        n2eOrb_ = [None] * 2*len(n2eOrb)
+        n2eOrb_[ ::2] = n2eOrb
+        n2eOrb_[1::2] = n2eOrb
+        n2eOrb = n2eOrb_ 
+        n2eOrb = [0,1,2,3,4,5,6,7]
     else :
         nOrb = Emb1e.shape[0]
     Text = dedent("""
@@ -266,7 +275,7 @@ def WriteDumpFile(FileName, Emb1e, n2eOrb, nElec, Ms2=0, U=None, Int2e=None, Uhf
     Text = Text % (nOrb, nElec, Ms2, nOrb*"1,",["","\n    IUHF=1,"][Uhf])
     Text = "\n".join(" " + o for o in Text.splitlines()) + "\n"
     IntLines = []
-    assert(n2eOrb <= nOrb)
+    assert(len(n2eOrb) <= nOrb)
     LineFmt = "  %16.12f %i %i %i %i"
     def AppendSeparatorLine():
         # in UHF case, such lines separate between the different spin cases.
@@ -280,7 +289,7 @@ def WriteDumpFile(FileName, Emb1e, n2eOrb, nElec, Ms2=0, U=None, Int2e=None, Uhf
         #for iOrb in range(nImp):
         #    IntLines.append(LineFmt % (U, iOrb+1,iOrb+1,iOrb+1,iOrb+1) )
         if U is not None:
-            for iOrb in range(n2eOrb):
+            for iOrb in n2eOrb:
                 IntLines.append(LineFmt % (U, iOrb+1,iOrb+1,iOrb+1,iOrb+1) )
         elif Int2e is not None:
             assert(nOrb == Int2e.shape[0] == Int2e.shape[1] == Int2e.shape[2] == Int2e.shape[3])
@@ -482,7 +491,7 @@ def FindFciSolution(BasePath,nSys_,nSysTrace=None,CiMethod="FCI", IntType="RHF",
             Rdm1a = Read1Rdm(FileNameRdm + ".A")
             Rdm1b = Read1Rdm(FileNameRdm + ".B")
             Rdm1 = CombineSpinComps(Rdm1a, Rdm1b)
-        print "fci Rdm1 is:\n", Rdm1
+        #print "fci Rdm1 is:\n", Rdm1
         if ( FileNameFock is not None ):
             FciFock = Read1Rdm(FileNameFock)
         #nOrb = h1.shape[0]
