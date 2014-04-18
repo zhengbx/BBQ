@@ -65,7 +65,7 @@ class Input(object):
         'LatticeSize': None,
         'Fragments': [{'Sites': range(4),
                        'ImpSolver': 'Fci',
-                       'Fitting': 'FullRdm'},],
+                       'Fitting': 'FullRdm', 'Factor': value(default=1)},],
         'BoundaryCondition': value(default='pbc',
                                    alllow=('pbc', 'apbc')),
     },
@@ -111,19 +111,22 @@ class Input(object):
         'v_fit_domain': value(default=2, allow=(1,2,3,6,8)),
             # domain of fitting potential
             # =1, whole embedding basis
-            # =2, impurity sites
+            # =2, impurity sites ("Local")
             # =3, diagonal entry of whole embedding
-            # =6, diagonal entry of impurity
+            # =6, diagonal entry of impurity ("Diagonal")
             # =8, trace of impurity
         'dm_fit_constraint': False,
         'vfit_method': value(default='local',
-                             allow=('local','global','oneshot')),
+                             allow=('local','global','oneshot',
+                                   'FullRdm','ImpRdm','EnvRdm','EnvAndCoupling')),
             # detailed fitting method
         'fitpot_damp_fac': value(default=0.5, limits=(0,1)),
         'vfit_init': 0,
             # initial guess for fitting method.  This key only affects the DM
             # fitting procedure, i.e. which fitting potential to start with.
             # It is different from DMET.init_guess.
+        'thr_svd_bath': value(default=1.e-6, limits=(0.,1.)),
+            # threshold for svd in bath construction
     },
     'IMPSOLVER': {
         'imp_solver': value(default='FCI', allow=('FCI','CC')),
@@ -140,11 +143,13 @@ class Input(object):
             # mean field solver follows the initial guess or not
         'max_iter': 40,
             # maximum number of HF iterations
-        'conv_thr_dE': value(1e-8, limits=(0,0.1)),
+        'conv_thr_dE': value(1.e-8, limits=(0,0.1)),
             # convergence threshold for energy HF
-        'conv_thr_dOrb': value(1e-8, limits=(0,0.1)),
+        'conv_thr_dOrb': value(1.e-8, limits=(0,0.1)),
             # convergence threshold for orbital gradient HF
-        'diis_thr': value(default=1e+99,limits=(0,0.1)),
+        'thr_deg': value(1.e-6, limits=(0.,0.1)),
+            # threshold for identification of degenerate orbitals electron mfd
+        'diis_thr': value(default=1.e+99,limits=(0,0.1)),
         'diis_start': value(default=8),
         'diis_dim': value(default=12),
             # diis keywords for HF

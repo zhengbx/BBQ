@@ -132,8 +132,8 @@ class FLattice(object):
         # expand reduced matrices, eg. Hopping matrix
         assert(self.bc == 1 or self.bc == -1)
         scnsites = A.shape[1]
-        nsites = A.shape[0] * A.shape[1] 
-        # ^ takes into account UHF case as well
+        nsites = A.shape[0] * A.shape[1]
+        # ^ takes into account UHF case as well 
         B = np.zeros((nsites, nsites))
         nonzero = []
         for i in range(A.shape[0]):
@@ -144,7 +144,7 @@ class FLattice(object):
                 pos = (self.supercell_list[i] + self.supercell_list[j]) % self.scsize
                 phase = np.product(self.bc**(pos))
                 idx = findindex(self.supercell_list, pos)
-                B[i*scnsites:(i+1)*scnsites, idx*scnsites:(idx+1)*scnsites] = phase*A[j]
+                B[idx*scnsites:(idx+1)*scnsites, i*scnsites:(i+1)*scnsites] = phase*A[j]
         return B
 
 
@@ -205,7 +205,7 @@ def BuildLatticeFromInput(inp_geom, OrbType = "RHF"):
                      inp_geom.UnitCell["Sites"])
     sc = FSuperCell(unit, np.array(inp_geom.ClusterSize))
     from fragments import FFragment
-    frags = [FFragment(f["Sites"], f["ImpSolver"], f["Fitting"])
+    frags = [FFragment(f["Sites"], f["ImpSolver"], f["Fitting"], f["Factor"])
              for f in inp_geom.Fragments]
     sc.set_fragments(frags)
 
