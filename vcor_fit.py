@@ -35,12 +35,13 @@ def FitVcorComponent(EmbFock, nImp, RdmHl, VLOC_TYPE, VLOC_FIT_TYPE):
             as EmbFock.
    Returns nImp x nImp matrix dVcor.
    """
+
    assert(EmbFock.shape[0] == EmbFock.shape[1])
    assert(EmbFock.shape == RdmHl.shape)
-   if VLOC_TYPE == "Diagonal":
+   if VLOC_TYPE == 6:
       VlocSize = nImp
    else:
-      assert(VLOC_TYPE == "Local")
+      assert(VLOC_TYPE == 2)
       VlocSize = (nImp*(nImp+1))/2
 
    # nEmb: total number of orbitals in embedded system.
@@ -54,7 +55,7 @@ def FitVcorComponent(EmbFock, nImp, RdmHl, VLOC_TYPE, VLOC_FIT_TYPE):
       ij = 0
       for i in range(nImp):
          for j in range(i+1):
-            if ( VLOC_TYPE == "Diagonal" and i != j ):
+            if ( VLOC_TYPE == 6 and i != j ):
                continue
             h0_for_vloc[i,j,ij] = 1.
             h0_for_vloc[j,i,ij] = 1.
@@ -66,7 +67,7 @@ def FitVcorComponent(EmbFock, nImp, RdmHl, VLOC_TYPE, VLOC_FIT_TYPE):
       # this does the same as resmin, but
       # solves the target fitting equation analyically.
       # note that we can setup an equivalent routine for fullrdm fit.
-      assert(VLOC_TYPE == "Local")
+      assert(VLOC_TYPE == 2)
       # ^- we could do Diagonal/ImpRdm by making an idempotent
       # approximation to a RDM obtained by taking the previous HF
       # RDM and just fixing the diagonal entries to the CI RDM.
@@ -178,7 +179,7 @@ def FitVcorComponent(EmbFock, nImp, RdmHl, VLOC_TYPE, VLOC_FIT_TYPE):
          print TestRdm-FitRdmHf
       return MakeVlocForRdm(FitRdmHf, nOcc, EmbFock, h0_for_vloc)
 
-   if VLOC_TYPE == "Local" and VLOC_FIT_TYPE in ["ImpRdm", "FullRdm"]:
+   if 0: #VLOC_TYPE == 2 and VLOC_FIT_TYPE in ["ImpRdm", "FullRdm"]:
       # hm.. this is actually not quite 100% the same as we did before
       # in the FullRdm case. It gives, however, almost the same numbers
       # and is more stable and much more scalable...
@@ -187,6 +188,7 @@ def FitVcorComponent(EmbFock, nImp, RdmHl, VLOC_TYPE, VLOC_FIT_TYPE):
       from helpers import resmin
 
       # find number of electrons/orbitals to occupy.
+      RdmHl = np.around(RdmHl,decimals=10)
       fElec = np.trace(RdmHl)
       nElec = int(fElec+.5)
       assert(abs(fElec - nElec) < 1e-8)
@@ -210,21 +212,36 @@ def FitVcorComponent(EmbFock, nImp, RdmHl, VLOC_TYPE, VLOC_FIT_TYPE):
       OccOrb = dot(NatOrb, diag(Occ**.5))
       def Err1v(vloc):
          dRdm = (MakeRdm(vloc) - RdmHl)
-         if VLOC_TYPE == "Diagonal":
+         if VLOC_TYPE == 6:
             dRdm = diag(dRdm)
-         if VLOC_FIT_TYPE == "FullRdm":
-            return dRdm.flatten()
-         elif VLOC_FIT_TYPE == "ImpRdm":
-            if VLOC_TYPE == "Diagonal":
-               return dRdm[:nImp]
-            return ToTriangle(dRdm[:nImp,:nImp])
-         elif VLOC_FIT_TYPE == "EnvRdm":
-            if VLOC_TYPE == "Diagonal":
-               return dRdm[nImp:]
-            return ToTriangle(dRdm[nImp:,nImp:])
-         elif VLOC_FIT_TYPE == "EnvAndCoupling":
-            dRdm[:nImp,:nImp] = 0
-            return dRdm.flatten()
+            if VLOC_FIT_TYPE == "FullRdm":
+               return dRdm.flatten()
+            elif VLOC_FIT_TYPE == "ImpRdm":
+               if VLOC_TYPE == 6:
+                  return dRdm[:nImp]
+               return ToTriangle(dRdm[:nImp,:nImp])
+            elif VLOC_FIT_TYPE == "EnvRdm":
+               if VLOC_TYPE == 6:
+                  return dRdm[nImp:]
+               return ToTriangle(dRdm[nImp:,nImp:])
+            elif VLOC_FIT_TYPE == "EnvAndCoupling":
+               dRdm[:nImp,:nImp] = 0
+               return dRdm.flatten()
+         elif VLOC_TYPE == 2:
+            dRdm = dRdm
+            if VLOC_FIT_TYPE == "FullRdm":
+               return dRdm.flatten()
+            elif VLOC_FIT_TYPE == "ImpRdm":
+               if VLOC_TYPE == 2:
+                  return dRdm[:nImp,:nImp].flatten()
+               return diag(dRdm)[:nImp]
+            elif VLOC_FIT_TYPE == "EnvRdm":
+               if VLOC_TYPE == 2:
+                  return dRdm[nImp:,nImp:].flatten()
+               return diag(dRdm)[nImp:]
+            elif VLOC_FIT_TYPE == "EnvAndCoupling":
+               dRdm[:nImp,:nImp] = 0
+               return dRdm.flatten()
          else:
             # fit type not recognized.
             assert(0)
